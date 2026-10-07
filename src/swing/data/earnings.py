@@ -57,7 +57,7 @@ def upcoming(symbols: list[str], today: date, horizon_days: int = 45, confirm_wi
 def exclude_days(info: EarningsInfo | None) -> int:
     """How many trading days ahead this symbol must be excluded, given estimate padding."""
     cfg = load_config().screener
-    if info is None or info.date is None:
+    if info is None:
         return 0
     base = cfg.earnings_exclude_trading_days
     return base + (cfg.earnings_estimate_pad_days if info.is_estimate else 0)
