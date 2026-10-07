@@ -9,7 +9,7 @@ Rules that matter on the free plan (verified 2026-10-07):
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from functools import lru_cache
 
 import pandas as pd
@@ -35,10 +35,10 @@ def available() -> bool:
 
 
 def _sip_end(end: datetime | None) -> datetime:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     e = end or now
     if e.tzinfo is None:
-        e = e.replace(tzinfo=timezone.utc)
+        e = e.replace(tzinfo=UTC)
     return min(e, now - SIP_LAG)
 
 
@@ -63,14 +63,14 @@ def daily_bars(symbols: list[str], start: date, end: date | None = None) -> dict
     from alpaca.data.timeframe import TimeFrame
 
     client = _client()
-    end_dt = _sip_end(datetime.combine(end, datetime.max.time(), tzinfo=timezone.utc) if end else None)
+    end_dt = _sip_end(datetime.combine(end, datetime.max.time(), tzinfo=UTC) if end else None)
     out: dict[str, pd.DataFrame] = {}
     for i in range(0, len(symbols), SYMBOL_CHUNK):
         chunk = symbols[i : i + SYMBOL_CHUNK]
         req = StockBarsRequest(
             symbol_or_symbols=chunk,
             timeframe=TimeFrame.Day,
-            start=datetime.combine(start, datetime.min.time(), tzinfo=timezone.utc),
+            start=datetime.combine(start, datetime.min.time(), tzinfo=UTC),
             end=end_dt,
             feed=DataFeed.SIP,
             adjustment=Adjustment.SPLIT,
@@ -99,7 +99,7 @@ def intraday_bars(
     from alpaca.data.timeframe import TimeFrame, TimeFrameUnit
 
     client = _client()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     end_dt = _sip_end(end) if feed == "sip" else (end or now)
     start_dt = end_dt - timedelta(days=days + 4)  # pad for weekends/holidays
     req = StockBarsRequest(
@@ -143,7 +143,7 @@ def news(symbols: list[str], days: int, limit: int = 50) -> list[NewsItem]:
     from alpaca.data.requests import NewsRequest
 
     client = _client()
-    start = datetime.now(timezone.utc) - timedelta(days=days)
+    start = datetime.now(UTC) - timedelta(days=days)
     out: list[NewsItem] = []
     try:
         res = client.get_news(NewsRequest(symbols=",".join(symbols), start=start, limit=limit, include_content=False))

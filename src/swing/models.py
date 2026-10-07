@@ -90,6 +90,7 @@ class PatternResult(BaseModel):
     name: PatternName = "none"
     resistance: float | None = None
     base_low: float | None = None
+    support_low: float | None = None  # doc stop option 2: higher low inside the base where price bounced
     base_start: dt.date | None = None
     base_bars: int = 0
     base_depth_pct: float | None = None
@@ -257,6 +258,7 @@ class Position(BaseModel):
     initial_stop: float
     shares: float
     target_2r: float
+    resistance: float | None = None  # breakout level; "close back inside the base" = close below this
     pattern: str = ""
     sector: str | None = None
     half_sold: bool = False

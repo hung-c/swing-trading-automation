@@ -167,6 +167,21 @@ def screen(
     return ScreenOutput(rows, excluded, strict_count, step, len(feats), feats)
 
 
+def apply_earnings(out: ScreenOutput, earnings: dict[str, EarningsInfo]) -> ScreenOutput:
+    """Attach earnings info fetched after the screen (cheaper: only for survivors) and move excluded rows."""
+    keep = []
+    for r in out.rows:
+        e = earnings.get(r.symbol)
+        r.earnings = e
+        if is_excluded(e):
+            r.excluded_reason = f"earnings in {e.trading_days_away} trading days"
+            out.excluded_earnings.append(r)
+        else:
+            keep.append(r)
+    out.rows = keep
+    return out
+
+
 def finviz_url(cfg: Cfg | None = None) -> str:
     """The doc's Finviz URL for manual parity checks (reflects the strict config, not the ladder)."""
     cfg = cfg or load_config()

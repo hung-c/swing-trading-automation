@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 
 from swing.config import env
 from swing.data.http import get
@@ -68,7 +68,7 @@ def company_news(symbol: str, days: int, limit: int = 20) -> list[NewsItem]:
                 headline=r.get("headline", ""),
                 source=r.get("source", ""),
                 url=r.get("url", ""),
-                published=datetime.fromtimestamp(r.get("datetime", 0), tz=timezone.utc) if r.get("datetime") else None,
+                published=datetime.fromtimestamp(r.get("datetime", 0), tz=UTC) if r.get("datetime") else None,
                 summary=(r.get("summary") or "")[:400],
                 provider="finnhub",
             )

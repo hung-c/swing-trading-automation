@@ -1,6 +1,7 @@
 from datetime import date, datetime
 
-from swing import llm, notion_publisher as npub
+from swing import llm
+from swing import notion_publisher as npub
 from swing.agents import pattern, risk, screener
 from swing.charts import charts_for_plan
 from swing.models import Alert, DailyBrief, ManageAction, Position, RegimeReport, TickerNews
@@ -44,7 +45,7 @@ def test_notion_blocks_build_without_network(flat_base_frame, cfg):
     assert any(x["type"] == "code" for x in blocks)
     assert any(x["type"] == "to_do" for x in blocks)
     for x in blocks:
-        for k, v in x.items():
+        for v in x.values():
             if isinstance(v, dict) and "rich_text" in v:
                 assert all(len(t["text"]["content"]) <= 2000 for t in v["rich_text"])
 

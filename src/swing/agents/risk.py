@@ -42,6 +42,15 @@ def build_plan(c: Candidate, cfg: Cfg | None = None) -> PlanCard:
     risk_ps = entry - stop
     stop_pct = risk_ps / entry * 100.0
 
+    # Doc stop option 2: if the base-low stop is too loose, use a tested support level inside the base
+    if stop_pct > rk.stop_max_pct_reduced and pat.support_low:
+        alt = _round_tick(pat.support_low - 0.25 * atr)
+        alt_pct = (entry - alt) / entry * 100.0
+        if rk.atr_stop_min_mult * atr <= (entry - alt) and alt_pct <= rk.stop_max_pct_reduced:
+            notes.append(f"stop under in-base support {pat.support_low:.2f} (base low {structural_low:.2f} would be {stop_pct:.1f}%)")
+            stop, risk_ps, stop_pct = alt, entry - alt, alt_pct
+            atr_mult = risk_ps / atr if atr else atr_mult
+
     # Sizing: fixed-fractional; 8-12% stop only with halved $ risk (doc); >12% reject
     dollar_risk = acct.size_usd * acct.risk_pct_per_trade / 100.0
     rejected = None

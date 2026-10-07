@@ -1,4 +1,4 @@
-"""SQLite journal: plans, positions, alerts, briefs. Source of truth; Notion is a mirror.
+﻿"""SQLite journal: plans, positions, alerts, briefs. Source of truth; Notion is a mirror.
 
 The file state/journal.sqlite is committed back to the repo by the GitHub Actions workflow.
 """
@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS plans (
   payload TEXT, PRIMARY KEY (plan_date, symbol));
 CREATE TABLE IF NOT EXISTS positions (
   symbol TEXT PRIMARY KEY, opened TEXT, entry REAL, stop REAL, initial_stop REAL, shares REAL, target_2r REAL,
-  pattern TEXT, sector TEXT, half_sold INTEGER DEFAULT 0, closed TEXT, exit_price REAL, r_multiple REAL);
+  pattern TEXT, sector TEXT, half_sold INTEGER DEFAULT 0, closed TEXT, exit_price REAL, r_multiple REAL, resistance REAL);
 CREATE TABLE IF NOT EXISTS trades (
   id INTEGER PRIMARY KEY AUTOINCREMENT, symbol TEXT, opened TEXT, closed TEXT, entry REAL, initial_stop REAL,
   exit_price REAL, shares REAL, r_multiple REAL, pattern TEXT, sector TEXT);
@@ -94,7 +94,7 @@ def open_positions(path: Path | None = None) -> list[Position]:
         Position(
             symbol=r["symbol"], opened=date.fromisoformat(r["opened"]), entry=r["entry"], stop=r["stop"],
             initial_stop=r["initial_stop"], shares=r["shares"], target_2r=r["target_2r"], pattern=r["pattern"] or "",
-            sector=r["sector"], half_sold=bool(r["half_sold"]),
+            sector=r["sector"], half_sold=bool(r["half_sold"]), resistance=r["resistance"],
         )
         for r in rows
     ]
@@ -103,10 +103,10 @@ def open_positions(path: Path | None = None) -> list[Position]:
 def upsert_position(p: Position, path: Path | None = None) -> None:
     with connect(path) as con:
         con.execute(
-            "INSERT OR REPLACE INTO positions VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "INSERT OR REPLACE INTO positions VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
                 p.symbol, p.opened.isoformat(), p.entry, p.stop, p.initial_stop, p.shares, p.target_2r, p.pattern,
-                p.sector, int(p.half_sold), p.closed.isoformat() if p.closed else None, p.exit_price, p.r_multiple,
+                p.sector, int(p.half_sold), p.closed.isoformat() if p.closed else None, p.exit_price, p.r_multiple, p.resistance,
             ),
         )
 

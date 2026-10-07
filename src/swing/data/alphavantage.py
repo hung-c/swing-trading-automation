@@ -9,7 +9,7 @@ import csv
 import io
 import json
 import logging
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 from swing.config import ROOT, env, load_config
@@ -80,7 +80,7 @@ def earnings_calendar(horizon: str = "3month") -> dict[str, EarningsInfo]:
 
 
 def news_sentiment(symbol: str, days: int, limit: int = 20) -> list[NewsItem]:
-    t = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y%m%dT%H%M")
+    t = (datetime.now(UTC) - timedelta(days=days)).strftime("%Y%m%dT%H%M")
     data = _call({"function": "NEWS_SENTIMENT", "tickers": symbol, "time_from": t, "limit": str(limit), "sort": "LATEST"})
     if not data:
         return []
@@ -93,7 +93,7 @@ def news_sentiment(symbol: str, days: int, limit: int = 20) -> list[NewsItem]:
                 label = ts.get("ticker_sentiment_label")
         pub = None
         try:
-            pub = datetime.strptime(f.get("time_published", ""), "%Y%m%dT%H%M%S").replace(tzinfo=timezone.utc)
+            pub = datetime.strptime(f.get("time_published", ""), "%Y%m%dT%H%M%S").replace(tzinfo=UTC)
         except ValueError:
             pass
         out.append(

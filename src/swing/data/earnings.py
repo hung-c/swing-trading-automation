@@ -23,10 +23,15 @@ def upcoming(symbols: list[str], today: date, horizon_days: int = 45, confirm_wi
     window_end = today + timedelta(days=horizon_days)
     fh = finnhub.earnings_calendar(today, window_end)
     av = alphavantage.earnings_calendar("3month") if alphavantage.available() else {}
+    keyless = not fh and not av  # no Finnhub/AV keys -> yfinance per symbol (slow but the rule is hard)
+    if keyless:
+        log.warning("no Finnhub/Alpha Vantage earnings data; falling back to yfinance for %d symbols", len(symbols))
 
     out: dict[str, EarningsInfo] = {}
     for sym in symbols:
         info = fh.get(sym) or av.get(sym)
+        if info is None and keyless:
+            info = yf.earnings(sym)
         if info is None:
             continue
         info = info.model_copy()

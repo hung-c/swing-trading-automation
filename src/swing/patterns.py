@@ -160,7 +160,7 @@ def detect_ascending_triangle(df: pd.DataFrame, p: Cfg, pivot_n: int = 3) -> Pat
 
 def detect_cup_handle(df: pd.DataFrame, p: Cfg, pivot_n: int = 3) -> PatternResult | None:
     n = len(df)
-    high, low, close, vol = df["high"].to_numpy(), df["low"].to_numpy(), df["close"].to_numpy(), df["volume"].to_numpy()
+    high, low, vol = df["high"].to_numpy(), df["low"].to_numpy(), df["volume"].to_numpy()
     for handle_len in range(p.handle_min_days, p.handle_max_days + 1):
         rim_r = n - 1 - handle_len  # right rim index
         if rim_r < p.cup_min_weeks * 5 + 10:
@@ -252,6 +252,25 @@ def vcp_ok(contractions: list[float], max_ratio: float, last_max_pct: float) -> 
     return contractions[-1] <= last_max_pct
 
 
+def support_inside_base(df: pd.DataFrame, base_bars: int, base_low: float | None, pivot_n: int = 3) -> float | None:
+    """Doc stop option 2: a support level inside the base (confirmed pivot low that is above the base low and was
+    tested at least twice within ~1.5%). Returns the most recent such level, or None."""
+    if not base_bars or base_low is None:
+        return None
+    seg = df.iloc[-(base_bars + pivot_n) :]
+    _, lows = swing_pivots(seg, pivot_n)
+    levels = [v for _, v in lows if v > base_low * 1.01]
+    if not levels:
+        return None
+    # cluster: a level counts if another low (or the running min after it) sits within 1.5%
+    for lv in reversed(levels):
+        touches = sum(1 for v in levels if abs(v / lv - 1.0) <= 0.015)
+        touches += int(((seg["low"] / lv - 1.0).abs() <= 0.015).sum() >= 2)
+        if touches >= 2:
+            return float(lv)
+    return None
+
+
 def overhead_supply(df: pd.DataFrame, price: float, p: Cfg) -> OverheadSupply:
     """Volume-at-price over the trailing lookback. Dense zone within zone_pct above price -> not clear sky."""
     look = df.iloc[-int(p.lookback_months * 21) :]
@@ -281,7 +300,7 @@ def overhead_supply(df: pd.DataFrame, price: float, p: Cfg) -> OverheadSupply:
             dense_pct_above_price=(zl / price - 1.0) * 100.0,
             note=f"dense supply {zl:.2f}-{zh:.2f} ({(zl / price - 1) * 100:.1f}% above)",
         )
-    return OverheadSupply(clear_sky=True, note="no dense zone within %.0f%%" % p.zone_pct_above)
+    return OverheadSupply(clear_sky=True, note=f"no dense zone within {p.zone_pct_above:.0f}%")
 
 
 def base_count(df: pd.DataFrame, lookback: int = 300, depth_max_pct: float = 15.0, min_bars: int = 20) -> int:
@@ -386,6 +405,7 @@ def quality_score(df: pd.DataFrame, pat: PatternResult, cfg: Cfg | None = None) 
     pat.atr_ratio_10_50 = float(a10 / a50) if a50 else None
     tight = pat.bbwidth_at_low or (pat.atr_ratio_10_50 is not None and pat.atr_ratio_10_50 < 0.7)
     score += 1.0 if tight else 0.0
+    pat.support_low = support_inside_base(df, pat.base_bars, pat.base_low, p.pivot_window)
     pat.base_count = base_count(df)
     if pat.base_count >= 3:
         score -= 1.0
