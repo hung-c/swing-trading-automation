@@ -74,7 +74,7 @@ def daily_bars(symbols: list[str], start: date, end: date | None = None) -> dict
             end=end_dt,
             feed=DataFeed.SIP,
             adjustment=Adjustment.SPLIT,
-            limit=10_000,
+            # no `limit`: in alpaca-py it caps TOTAL bars across all symbols (10k = ~13 symbols x 3y); unset -> paginate all
         )
         try:
             bars = client.get_stock_bars(req)
@@ -109,7 +109,6 @@ def intraday_bars(
         end=end_dt,
         feed=DataFeed.SIP if feed == "sip" else DataFeed.IEX,
         adjustment=Adjustment.SPLIT,
-        limit=10_000,
     )
     try:
         bars = client.get_stock_bars(req)
@@ -140,9 +139,10 @@ def latest_prices(symbols: list[str]) -> dict[str, float]:
 
 def news(symbols: list[str], days: int, limit: int = 50) -> list[NewsItem]:
     """Benzinga-sourced news via Alpaca (free). Returns items tagged with every symbol they mention."""
+    from alpaca.data.historical.news import NewsClient
     from alpaca.data.requests import NewsRequest
 
-    client = _client()
+    client = NewsClient(env("ALPACA_KEY", required=True), env("ALPACA_SECRET", required=True))
     start = datetime.now(UTC) - timedelta(days=days)
     out: list[NewsItem] = []
     try:
@@ -150,7 +150,7 @@ def news(symbols: list[str], days: int, limit: int = 50) -> list[NewsItem]:
     except Exception as e:  # noqa: BLE001
         log.warning("alpaca news failed: %s", e)
         return out
-    items = getattr(res, "news", None) or getattr(res, "data", {}).get("news", [])
+    items = res.data.get("news", []) if hasattr(res, "data") else getattr(res, "news", [])
     for n in items:
         syms = [s for s in (n.symbols or []) if s in symbols] or symbols[:1]
         for s in syms:

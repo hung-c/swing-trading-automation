@@ -9,6 +9,7 @@ import csv
 import io
 import json
 import logging
+import time
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
@@ -50,13 +51,30 @@ def _spend(n: int = 1) -> bool:
     return True
 
 
+_last_call = 0.0
+_premium: set[str] = set()  # functions AV has told us are premium on this key (e.g. NEWS_SENTIMENT since 2026)
+
+
 def _call(params: dict, as_json: bool = True, ttl: int = 6 * 3600):
-    if not available() or not _spend():
+    global _last_call
+    fn = params.get("function", "")
+    if not available() or fn in _premium or not _spend():
         return None
+    gap = time.time() - _last_call
+    if gap < 1.1:  # free key: 1 request / second
+        time.sleep(1.1 - gap)
+    _last_call = time.time()
     params = {**params, "apikey": env("ALPHAVANTAGE_KEY")}
     data = get(BASE, params=params, as_json=as_json, ttl_seconds=ttl)
-    if as_json and isinstance(data, dict) and ("Note" in data or "Information" in data):
-        log.warning("alphavantage throttled: %s", data.get("Note") or data.get("Information"))
+    msg = (data.get("Note") or data.get("Information")) if as_json and isinstance(data, dict) else None
+    if not as_json and isinstance(data, str) and data.lstrip().startswith("{"):
+        msg = data[:200]
+    if msg:
+        if "premium" in msg.lower() and "rate limit" not in msg.lower():
+            _premium.add(fn)
+            log.warning("alphavantage: %s is a premium endpoint on this key; disabled for this run", fn)
+        else:
+            log.warning("alphavantage throttled: %s", msg[:120])
         return None
     return data
 

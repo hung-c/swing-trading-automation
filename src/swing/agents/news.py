@@ -61,7 +61,8 @@ def run(symbols: list[str], sentiment_symbols: list[str] | None = None, cfg: Cfg
     if symbols and alpaca.available():
         for it in alpaca.news(symbols, n.lookback_days, limit=50):
             alp.setdefault(it.symbol, []).append(it)
-    sentiment_symbols = (sentiment_symbols or symbols)[: n.alphavantage_daily_budget]
+    # AV NEWS_SENTIMENT became a premium endpoint in 2026; only used if explicitly enabled in config.
+    sentiment_symbols = (sentiment_symbols or symbols)[: n.alphavantage_daily_budget] if n.get("use_alphavantage_sentiment") else []
     for s in symbols:
         items = list(alp.get(s, []))
         if s in sentiment_symbols and alphavantage.available():

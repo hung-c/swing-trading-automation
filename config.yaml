@@ -110,11 +110,13 @@ news:
   lookback_days: 7
   max_headlines_per_ticker: 8
   alphavantage_daily_budget: 10
+  use_alphavantage_sentiment: false   # NEWS_SENTIMENT is premium-only since 2026; Alpaca/Benzinga is the free source
 
 llm:
   provider_order: ["groq", "gemini", "template"]
-  groq_model: "llama-3.3-70b-versatile"
-  gemini_model: "gemini-2.5-flash"
+  # Preference lists: the first model present in the provider's live /models list is used (verified 2026-10-07).
+  groq_models: ["openai/gpt-oss-120b", "qwen/qwen3.8-27b", "openai/gpt-oss-20b", "llama-3.3-70b-versatile"]
+  gemini_models: ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash"]
   max_output_tokens: 1800
 
 universe:

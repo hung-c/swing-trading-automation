@@ -66,10 +66,25 @@ def _facts(brief: DailyBrief) -> dict:
     }
 
 
-def _openai_compatible(base_url: str, api_key: str, model: str, facts: dict, max_tokens: int) -> BriefProse:
+def _pick_model(client, preferred: list[str]) -> str:
+    """First preferred model that the provider's live /models list actually offers (models get retired often)."""
+    try:
+        available = {m.id.removeprefix("models/") for m in client.models.list().data}
+    except Exception as e:  # noqa: BLE001
+        log.debug("models.list failed (%s); using first preference", str(e)[:80])
+        return preferred[0]
+    for m in preferred:
+        if m in available:
+            return m
+    raise RuntimeError(f"none of {preferred} available; provider offers {sorted(available)[:12]}...")
+
+
+def _openai_compatible(base_url: str, api_key: str, preferred: list[str], facts: dict, max_tokens: int) -> BriefProse:
     from openai import OpenAI
 
     client = OpenAI(base_url=base_url, api_key=api_key, timeout=60)
+    model = _pick_model(client, preferred)
+    log.info("LLM model: %s", model)
     resp = client.chat.completions.create(
         model=model,
         messages=[{"role": "system", "content": SYSTEM}, {"role": "user", "content": json.dumps(facts, default=str)}],
@@ -124,9 +139,9 @@ def write(brief: DailyBrief, cfg: Cfg | None = None) -> tuple[BriefProse, str]:
     for provider in cfg.llm.provider_order:
         try:
             if provider == "groq" and env("GROQ_KEY"):
-                return _openai_compatible("https://api.groq.com/openai/v1", env("GROQ_KEY"), cfg.llm.groq_model, facts, cfg.llm.max_output_tokens), "groq"
+                return _openai_compatible("https://api.groq.com/openai/v1", env("GROQ_KEY"), list(cfg.llm.groq_models), facts, cfg.llm.max_output_tokens), "groq"
             if provider == "gemini" and env("GEMINI_KEY"):
-                return _openai_compatible("https://generativelanguage.googleapis.com/v1beta/openai/", env("GEMINI_KEY"), cfg.llm.gemini_model, facts, cfg.llm.max_output_tokens), "gemini"
+                return _openai_compatible("https://generativelanguage.googleapis.com/v1beta/openai/", env("GEMINI_KEY"), list(cfg.llm.gemini_models), facts, cfg.llm.max_output_tokens), "gemini"
             if provider == "template":
                 return template(brief), "template"
         except (ValidationError, json.JSONDecodeError) as e:

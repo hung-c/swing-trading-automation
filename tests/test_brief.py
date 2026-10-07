@@ -22,9 +22,11 @@ def _brief(flat_base_frame, cfg) -> DailyBrief:
     )
 
 
-def test_template_brief_validates(flat_base_frame, cfg):
+def test_template_brief_validates(flat_base_frame, cfg, monkeypatch):
+    monkeypatch.delenv("GROQ_KEY", raising=False)
+    monkeypatch.delenv("GEMINI_KEY", raising=False)
     b = _brief(flat_base_frame, cfg)
-    prose, provider = llm.write(b, cfg)  # no keys in CI -> template
+    prose, provider = llm.write(b, cfg)  # no keys -> template
     assert provider == "template"
     assert "FLAT" in prose.watchlist_commentary
     assert len(prose.tomorrow_checklist) >= 3
