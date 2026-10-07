@@ -23,6 +23,7 @@ from swing.calendars import (
 )
 from swing.config import ensure_dirs, load_config
 from swing.data import bars, earnings
+from swing.extras import telegram
 from swing.models import DailyBrief, RegimeReport
 
 log = logging.getLogger(__name__)
@@ -128,6 +129,8 @@ def run_nightly(args) -> int:
     journal.save_plans(session, watch + rejected)
     journal.kv_set(f"regime:{session.isoformat()}", reg.model_dump(mode="json"))
     _publish(brief, args.dry_run)
+    if not args.dry_run:
+        telegram.push_nightly(brief)
     if not args.dry_run and notion.available():
         try:
             notion.upsert_plans(watch + rejected, session)
@@ -195,11 +198,13 @@ def run_intraday(args) -> int:
         print(f"{a.ts:%H:%M} {a.symbol} {a.condition}{' *' if a.actionable else ''}: {a.message}")
         if a.condition == "breakout_confirmed":
             journal.update_plan_status(_latest_plan_date(), a.symbol, "triggered")
-    if new and not args.dry_run and notion.available():
-        try:
-            notion.append_alerts(new)
-        except Exception as e:  # noqa: BLE001
-            log.error("notion alerts failed: %s", e)
+    if new and not args.dry_run:
+        telegram.push_alerts(new)
+        if notion.available():
+            try:
+                notion.append_alerts(new)
+            except Exception as e:  # noqa: BLE001
+                log.error("notion alerts failed: %s", e)
 
     close = close_time_et(now.date()) or time(16, 0)
     manage_window = (now.hour, now.minute) >= (close.hour, max(close.minute - 20, 0)) if close else False
