@@ -1,0 +1,1020 @@
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"/><title>Swing trade Routine </title><meta name="data-notion-page-icon" content="/icons/document_gray.svg"/><link rel="icon" href="https://app.notion.com/icons/document_gray.svg"/><style>
+/* cspell:disable-file */
+/* webkit printing magic: print all background colors */
+html {
+	-webkit-print-color-adjust: exact;
+}
+* {
+	box-sizing: border-box;
+	-webkit-print-color-adjust: exact;
+}
+
+html,
+body {
+	margin: 0;
+	padding: 0;
+}
+@media only screen {
+	body {
+		margin: 2em auto;
+		max-width: 900px;
+		color: rgb(55, 53, 47);
+	}
+}
+
+body {
+	line-height: 1.5;
+	white-space: pre-wrap;
+}
+
+a,
+a.visited {
+	color: inherit;
+	text-decoration: underline;
+}
+
+.pdf-relative-link-path {
+	font-size: 80%;
+	color: #444;
+}
+
+h1,
+h2,
+h3 {
+	letter-spacing: -0.01em;
+	line-height: 1.2;
+	font-weight: 600;
+	margin-bottom: 0;
+}
+
+/* Override strong tags inside headings to maintain consistent weight */
+h1 strong,
+h2 strong,
+h3 strong {
+	font-weight: 600;
+}
+
+.page-title {
+	font-size: 2.5rem;
+	font-weight: 700;
+	margin-top: 0;
+	margin-bottom: 0.75em;
+}
+
+h1 {
+	font-size: 1.875rem;
+	margin-top: 1.875rem;
+}
+
+h2 {
+	font-size: 1.5rem;
+	margin-top: 1.5rem;
+}
+
+h3 {
+	font-size: 1.25rem;
+	margin-top: 1.25rem;
+}
+
+.source {
+	border: 1px solid #ddd;
+	border-radius: 3px;
+	padding: 1.5em;
+	word-break: break-all;
+}
+
+.callout {
+	border-radius: 10px;
+	padding: 1rem;
+}
+
+/* For default-background callouts, render the border outline. */
+.callout.block-color-default_background {
+	border: 1px solid rgba(55, 53, 47, 0.09);
+}
+
+figure {
+	margin: 1.25em 0;
+	page-break-inside: avoid;
+}
+
+/*
+ * Toggles and callouts hold arbitrary content, so they can easily be taller
+ * than a page. They must stay breakable: avoiding breaks inside them makes
+ * Chromium push the whole block onto the next page, which leaves the previous
+ * page mostly empty before every long toggle.
+ */
+details,
+aside {
+	margin: 1.25em 0;
+}
+
+/* Keep a toggle's title on the same page as the start of its content. */
+summary {
+	page-break-after: avoid;
+	break-after: avoid;
+}
+
+/*
+ * Toggle headings render as <h1/h2/h3 style="display:inline-block"> inside
+ * <summary>. Without this reset, the heading's margin-top pushes it below the
+ * ::marker (▼), so the triangle and the title appear on separate lines.
+ */
+summary h1,
+summary h2,
+summary h3,
+summary h4 {
+	margin-top: 0;
+}
+
+figcaption {
+	opacity: 0.5;
+	font-size: 85%;
+	margin-top: 0.5em;
+}
+
+mark {
+	background-color: transparent;
+}
+
+.indented {
+	padding-left: 1.5em;
+}
+
+hr {
+	background: transparent;
+	display: block;
+	width: 100%;
+	height: 1px;
+	visibility: visible;
+	border: none;
+	border-bottom: 1px solid rgba(55, 53, 47, 0.09);
+}
+
+img {
+	max-width: 100%;
+}
+
+@media only print {
+	img {
+		max-height: 100vh;
+		object-fit: contain;
+	}
+
+	table.collection-content {
+		width: 100%;
+		table-layout: fixed;
+	}
+
+	table.collection-content th,
+	table.collection-content td {
+		overflow-wrap: anywhere;
+	}
+
+	table.collection-content td > .user,
+	table.collection-content td > time {
+		white-space: pre-wrap;
+	}
+}
+
+@page {
+	margin: 1in;
+}
+
+.collection-content-wrapper {
+	overflow-x: auto;
+}
+
+@media only print {
+	.collection-content-wrapper {
+		overflow-x: visible;
+	}
+}
+
+.collection-content {
+	font-size: 0.875rem;
+}
+
+.collection-content td {
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.column-list {
+	display: flex;
+	gap: 46px;
+}
+
+.column {
+	min-width: 0;
+	overflow: hidden;
+}
+
+.column > *:first-child {
+	margin-top: 0;
+}
+
+.table_of_contents-item {
+	display: block;
+	font-size: 0.875rem;
+	line-height: 1.3;
+	padding-inline: 0.125rem;
+	padding-block: 0.375rem;
+}
+
+.table_of_contents-indent-1 {
+	margin-left: 1.5rem;
+}
+
+.table_of_contents-indent-2 {
+	margin-left: 3rem;
+}
+
+.table_of_contents-indent-3 {
+	margin-left: 4.5rem;
+}
+
+.table_of_contents-link {
+	text-decoration: none;
+	opacity: 0.7;
+	border-bottom: 1px solid rgba(55, 53, 47, 0.18);
+}
+
+table,
+th,
+td {
+	border: 1px solid rgba(55, 53, 47, 0.09);
+}
+
+table {
+	border-collapse: collapse;
+	border-left: none;
+	border-right: none;
+}
+
+th,
+td {
+	font-weight: normal;
+	padding: 0.25em 0.5em;
+	line-height: 1.5;
+	min-height: 1.5em;
+	text-align: left;
+}
+
+th {
+	color: rgba(55, 53, 47, 0.6);
+}
+
+ol,
+ul {
+	margin: 0;
+	margin-block-start: 0.6em;
+	margin-block-end: 0.6em;
+}
+
+li > ol:first-child,
+li > ul:first-child {
+	margin-block-start: 0.6em;
+}
+
+ul > li {
+	list-style: disc;
+}
+
+ul.to-do-list {
+	padding-inline-start: 0;
+}
+
+ul.to-do-list > li {
+	list-style: none;
+}
+
+.to-do-children-checked {
+	text-decoration: line-through;
+	opacity: 0.375;
+}
+
+ul.toggle > li {
+	list-style: none;
+}
+
+ul {
+	padding-inline-start: 1.7em;
+}
+
+ul > li {
+	padding-left: 0.1em;
+}
+
+ol {
+	padding-inline-start: 1.6em;
+}
+
+ol.numbered-list.numbered-list-digits-2 {
+	padding-inline-start: 2em;
+}
+
+ol.numbered-list.numbered-list-digits-3plus {
+	padding-inline-start: 2.4em;
+}
+
+ol > li {
+	padding-left: 0.2em;
+}
+
+.mono ol {
+	padding-inline-start: 2em;
+}
+
+.mono ol > li {
+	text-indent: -0.4em;
+}
+
+.toggle {
+	padding-inline-start: 0em;
+	list-style-type: none;
+}
+
+/* Indent toggle children */
+.toggle > li > details {
+	padding-left: 1.7em;
+}
+
+.toggle > li > details > summary {
+	margin-left: -1.1em;
+}
+
+.selected-value {
+	display: inline-block;
+	padding: 0 0.5em;
+	background: rgba(206, 205, 202, 0.5);
+	border-radius: 3px;
+	margin-right: 0.5em;
+	margin-top: 0.3em;
+	margin-bottom: 0.3em;
+	white-space: nowrap;
+}
+
+.collection-title {
+	display: inline-block;
+	margin-right: 1em;
+}
+
+.page-description {
+	margin-bottom: 2em;
+}
+
+.simple-table {
+	margin-top: 1em;
+	font-size: 0.875rem;
+	empty-cells: show;
+}
+.simple-table td {
+	height: 29px;
+	min-width: 120px;
+}
+
+.simple-table th {
+	height: 29px;
+	min-width: 120px;
+}
+
+.simple-table-header-color {
+	background: rgb(247, 246, 243);
+	color: black;
+}
+.simple-table-header {
+	font-weight: 500;
+}
+
+time {
+	opacity: 0.5;
+}
+
+.icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	max-width: 1.2em;
+	max-height: 1.2em;
+	text-decoration: none;
+	vertical-align: text-bottom;
+	margin-right: 0.5em;
+}
+
+/*
+ * Render emoji icons using a ::before pseudo-element to keep the glyph
+ * out of the DOM textContent traversal. This avoids double-rendering icons
+ * in callouts and page titles.
+ * NOTE(slim/html-export-pseudo-icons): I can't tagref this because it will
+ * flag as a duplicate tag after codegen.
+ */
+.icon[data-emoji]::before {
+	content: attr(data-emoji);
+}
+
+img.icon {
+	border-radius: 3px;
+}
+
+.callout img.notion-static-icon {
+	width: 1em;
+	height: 1em;
+}
+
+.callout p {
+	margin: 0;
+}
+
+.callout h1,
+.callout h2,
+.callout h3 {
+	margin: 0 0 0.6rem;
+}
+
+.user-icon {
+	width: 1.5em;
+	height: 1.5em;
+	border-radius: 100%;
+	margin-right: 0.5rem;
+}
+
+.user-icon-inner {
+	font-size: 0.8em;
+}
+
+.text-icon {
+	border: 1px solid #000;
+	text-align: center;
+}
+
+.page-cover-image {
+	display: block;
+	object-fit: cover;
+	width: 100%;
+	max-height: 30vh;
+}
+
+.page-header-icon {
+	font-size: 3rem;
+	margin-bottom: 1rem;
+}
+
+.page-header-icon-with-cover {
+	margin-top: -0.72em;
+	margin-left: 0.07em;
+}
+
+.page-header-icon img {
+	border-radius: 3px;
+}
+
+.link-to-page {
+	margin: 1em 0;
+	padding: 0;
+	border: none;
+	font-weight: 500;
+}
+
+p > .user {
+	opacity: 0.5;
+}
+
+td > .user,
+td > time {
+	white-space: nowrap;
+}
+
+input[type="checkbox"] {
+	margin-right: 0.4em;
+	vertical-align: middle;
+}
+
+p {
+	margin-top: 0.5em;
+	margin-bottom: 0.5em;
+}
+
+.image {
+	border: none;
+	margin: 1.5em 0;
+	padding: 0;
+	border-radius: 0;
+	text-align: center;
+}
+
+.code,
+code {
+	background: rgba(135, 131, 120, 0.15);
+	border-radius: 3px;
+	padding: 0.2em 0.4em;
+	border-radius: 3px;
+	font-size: 85%;
+	tab-size: 2;
+}
+
+code {
+	color: #eb5757;
+}
+
+.code {
+	padding: 1.5em 1em;
+}
+
+.code-wrap {
+	white-space: pre-wrap;
+	word-break: break-all;
+}
+
+.code > code {
+	background: none;
+	padding: 0;
+	font-size: 100%;
+	color: inherit;
+}
+
+blockquote {
+	font-size: 1em;
+	margin: 1em 0;
+	padding-left: 1em;
+	border-left: 3px solid rgb(55, 53, 47);
+}
+
+blockquote.quote-large {
+	font-size: 1.25em;
+}
+
+.bookmark {
+	text-decoration: none;
+	max-height: 8em;
+	padding: 0;
+	display: flex;
+	width: 100%;
+	align-items: stretch;
+}
+
+.bookmark-title {
+	font-size: 0.85em;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	height: 1.75em;
+	white-space: nowrap;
+}
+
+.bookmark-text {
+	display: flex;
+	flex-direction: column;
+}
+
+.bookmark-info {
+	flex: 4 1 180px;
+	padding: 12px 14px 14px;
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+}
+
+.bookmark-image {
+	width: 33%;
+	flex: 1 1 180px;
+	display: block;
+	position: relative;
+	object-fit: cover;
+	border-radius: 1px;
+}
+
+.bookmark-description {
+	color: rgba(55, 53, 47, 0.6);
+	font-size: 0.75em;
+	overflow: hidden;
+	max-height: 4.5em;
+	word-break: break-word;
+}
+
+.bookmark-href {
+	font-size: 0.75em;
+	margin-top: 0.25em;
+}
+
+.tab {
+	margin: 1.25em 0;
+	padding-inline: 1rem;
+	border: 1px solid rgba(55, 53, 47, 0.09);
+}
+
+.sans { font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Helvetica, "Apple Color Emoji", "Noto Sans Arabic", "Noto Sans Hebrew", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol"; }
+.code { font-family: "SFMono-Regular", Menlo, Consolas, "PT Mono", "Liberation Mono", Courier, monospace; }
+.serif { font-family: Lyon-Text, Georgia, ui-serif, serif; }
+.mono { font-family: iawriter-mono, Nitti, Menlo, Courier, monospace; }
+.pdf .sans { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Helvetica, "Apple Color Emoji", "Noto Sans Arabic", "Noto Sans Hebrew", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol", 'Twemoji', 'Noto Color Emoji', 'Noto Sans CJK JP'; }
+.pdf:lang(zh-CN) .sans { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Helvetica, "Apple Color Emoji", "Noto Sans Arabic", "Noto Sans Hebrew", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol", 'Twemoji', 'Noto Color Emoji', 'Noto Sans CJK SC'; }
+.pdf:lang(zh-TW) .sans { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Helvetica, "Apple Color Emoji", "Noto Sans Arabic", "Noto Sans Hebrew", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol", 'Twemoji', 'Noto Color Emoji', 'Noto Sans CJK TC'; }
+.pdf:lang(ko-KR) .sans { font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Helvetica, "Apple Color Emoji", "Noto Sans Arabic", "Noto Sans Hebrew", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol", 'Twemoji', 'Noto Color Emoji', 'Noto Sans CJK KR'; }
+.pdf .code { font-family: Source Code Pro, "SFMono-Regular", Menlo, Consolas, "PT Mono", "Liberation Mono", Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK JP'; }
+.pdf:lang(zh-CN) .code { font-family: Source Code Pro, "SFMono-Regular", Menlo, Consolas, "PT Mono", "Liberation Mono", Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK SC'; }
+.pdf:lang(zh-TW) .code { font-family: Source Code Pro, "SFMono-Regular", Menlo, Consolas, "PT Mono", "Liberation Mono", Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK TC'; }
+.pdf:lang(ko-KR) .code { font-family: Source Code Pro, "SFMono-Regular", Menlo, Consolas, "PT Mono", "Liberation Mono", Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK KR'; }
+.pdf .serif { font-family: PT Serif, Lyon-Text, Georgia, ui-serif, serif, 'Twemoji', 'Noto Color Emoji', 'Noto Serif CJK JP'; }
+.pdf:lang(zh-CN) .serif { font-family: PT Serif, Lyon-Text, Georgia, ui-serif, serif, 'Twemoji', 'Noto Color Emoji', 'Noto Serif CJK SC'; }
+.pdf:lang(zh-TW) .serif { font-family: PT Serif, Lyon-Text, Georgia, ui-serif, serif, 'Twemoji', 'Noto Color Emoji', 'Noto Serif CJK TC'; }
+.pdf:lang(ko-KR) .serif { font-family: PT Serif, Lyon-Text, Georgia, ui-serif, serif, 'Twemoji', 'Noto Color Emoji', 'Noto Serif CJK KR'; }
+.pdf .mono { font-family: PT Mono, iawriter-mono, Nitti, Menlo, Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK JP'; }
+.pdf:lang(zh-CN) .mono { font-family: PT Mono, iawriter-mono, Nitti, Menlo, Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK SC'; }
+.pdf:lang(zh-TW) .mono { font-family: PT Mono, iawriter-mono, Nitti, Menlo, Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK TC'; }
+.pdf:lang(ko-KR) .mono { font-family: PT Mono, iawriter-mono, Nitti, Menlo, Courier, monospace, 'Twemoji', 'Noto Color Emoji', 'Noto Sans Mono CJK KR'; }
+.highlight-default {
+	color: rgba(44, 44, 43, 1);
+}
+.highlight-gray {
+	color: rgba(125, 122, 117, 1);
+	fill: rgba(125, 122, 117, 1);
+}
+.highlight-brown {
+	color: rgba(159, 118, 90, 1);
+	fill: rgba(159, 118, 90, 1);
+}
+.highlight-orange {
+	color: rgba(210, 123, 45, 1);
+	fill: rgba(210, 123, 45, 1);
+}
+.highlight-yellow {
+	color: rgba(203, 148, 52, 1);
+	fill: rgba(203, 148, 52, 1);
+}
+.highlight-teal {
+	color: rgba(80, 148, 110, 1);
+	fill: rgba(80, 148, 110, 1);
+}
+.highlight-blue {
+	color: rgba(56, 125, 201, 1);
+	fill: rgba(56, 125, 201, 1);
+}
+.highlight-purple {
+	color: rgba(154, 107, 180, 1);
+	fill: rgba(154, 107, 180, 1);
+}
+.highlight-pink {
+	color: rgba(193, 76, 138, 1);
+	fill: rgba(193, 76, 138, 1);
+}
+.highlight-red {
+	color: rgba(207, 81, 72, 1);
+	fill: rgba(207, 81, 72, 1);
+}
+.highlight-default_background {
+	color: rgba(44, 44, 43, 1);
+}
+.highlight-gray_background {
+	background: rgba(42, 28, 0, 0.07);
+}
+.highlight-brown_background {
+	background: rgba(139, 46, 0, 0.086);
+}
+.highlight-orange_background {
+	background: rgba(224, 101, 1, 0.129);
+}
+.highlight-yellow_background {
+	background: rgba(211, 168, 0, 0.137);
+}
+.highlight-teal_background {
+	background: rgba(0, 100, 45, 0.09);
+}
+.highlight-blue_background {
+	background: rgba(0, 124, 215, 0.094);
+}
+.highlight-purple_background {
+	background: rgba(102, 0, 178, 0.078);
+}
+.highlight-pink_background {
+	background: rgba(197, 0, 93, 0.086);
+}
+.highlight-red_background {
+	background: rgba(223, 22, 0, 0.094);
+}
+.block-color-default {
+	color: inherit;
+	fill: inherit;
+}
+.block-color-gray {
+	color: rgba(125, 122, 117, 1);
+	fill: rgba(125, 122, 117, 1);
+}
+.block-color-brown {
+	color: rgba(159, 118, 90, 1);
+	fill: rgba(159, 118, 90, 1);
+}
+.block-color-orange {
+	color: rgba(210, 123, 45, 1);
+	fill: rgba(210, 123, 45, 1);
+}
+.block-color-yellow {
+	color: rgba(203, 148, 52, 1);
+	fill: rgba(203, 148, 52, 1);
+}
+.block-color-teal {
+	color: rgba(80, 148, 110, 1);
+	fill: rgba(80, 148, 110, 1);
+}
+.block-color-blue {
+	color: rgba(56, 125, 201, 1);
+	fill: rgba(56, 125, 201, 1);
+}
+.block-color-purple {
+	color: rgba(154, 107, 180, 1);
+	fill: rgba(154, 107, 180, 1);
+}
+.block-color-pink {
+	color: rgba(193, 76, 138, 1);
+	fill: rgba(193, 76, 138, 1);
+}
+.block-color-red {
+	color: rgba(207, 81, 72, 1);
+	fill: rgba(207, 81, 72, 1);
+}
+.block-color-default_background {
+	color: inherit;
+	fill: inherit;
+}
+.block-color-gray_background {
+	background: rgba(240, 239, 237, 1);
+}
+.block-color-brown_background {
+	background: rgba(245, 237, 233, 1);
+}
+.block-color-orange_background {
+	background: rgba(251, 235, 222, 1);
+}
+.block-color-yellow_background {
+	background: rgba(249, 243, 220, 1);
+}
+.block-color-teal_background {
+	background: rgba(232, 241, 236, 1);
+}
+.block-color-blue_background {
+	background: rgba(229, 242, 252, 1);
+}
+.block-color-purple_background {
+	background: rgba(243, 235, 249, 1);
+}
+.block-color-pink_background {
+	background: rgba(250, 233, 241, 1);
+}
+.block-color-red_background {
+	background: rgba(252, 233, 231, 1);
+}
+.select-value-color-default { background-color: rgba(42, 28, 0, 0.07); }
+.select-value-color-gray { background-color: rgba(28, 19, 1, 0.11); }
+.select-value-color-brown { background-color: rgba(127, 51, 0, 0.156); }
+.select-value-color-orange { background-color: rgba(196, 88, 0, 0.203); }
+.select-value-color-yellow { background-color: rgba(209, 156, 0, 0.282); }
+.select-value-color-green { background-color: rgba(0, 96, 38, 0.156); }
+.select-value-color-blue { background-color: rgba(0, 118, 217, 0.203); }
+.select-value-color-purple { background-color: rgba(92, 0, 163, 0.141); }
+.select-value-color-pink { background-color: rgba(183, 0, 78, 0.152); }
+.select-value-color-red { background-color: rgba(206, 24, 0, 0.164); }
+
+.checkbox {
+	display: inline-flex;
+	vertical-align: text-bottom;
+	width: 16;
+	height: 16;
+	background-size: 16px;
+	margin-left: 2px;
+	margin-right: 5px;
+}
+
+.checkbox-on {
+	background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%0A%3Crect%20width%3D%2216%22%20height%3D%2216%22%20fill%3D%22%2358A9D7%22%2F%3E%0A%3Cpath%20d%3D%22M6.71429%2012.2852L14%204.9995L12.7143%203.71436L6.71429%209.71378L3.28571%206.2831L2%207.57092L6.71429%2012.2852Z%22%20fill%3D%22white%22%2F%3E%0A%3C%2Fsvg%3E");
+}
+
+.checkbox-off {
+	background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2016%2016%22%20fill%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%0A%3Crect%20x%3D%220.75%22%20y%3D%220.75%22%20width%3D%2214.5%22%20height%3D%2214.5%22%20fill%3D%22white%22%20stroke%3D%22%2336352F%22%20stroke-width%3D%221.5%22%2F%3E%0A%3C%2Fsvg%3E");
+}
+	
+</style><style>@import url('https://cdn.jsdelivr.net/npm/katex@0.16.25/dist/katex-swap.min.css')</style></head><body><article id="3aa8b41e-eb64-803b-928c-e50e4d6c0467" class="page sans" data-notion-page-icon="/icons/document_gray.svg"><header><div class="page-header-icon undefined"><img class="icon notion-static-icon" src="https://app.notion.com/icons/document_gray.svg"/></div><h1 class="page-title" dir="auto">Swing trade Routine </h1><p class="page-description" dir="auto"></p><table class="properties"><tbody><tr class="property-row property-row-checkbox"><th><span class="icon property-icon"><img src="https://app.notion.com/icons/star_gray.svg" style="width:14px;height:14px;display:block"/></span>Favorite</th><td><input type="checkbox" class="checkbox checkbox-off" disabled=""/></td></tr><tr class="property-row property-row-status"><th><span class="icon property-icon"><img src="https://app.notion.com/icons/burst_gray.svg" style="width:14px;height:14px;display:block"/></span>Status</th><td><span class="status-value"><div class="status-dot"></div>Inbox</span></td></tr><tr class="property-row property-row-created_time"><th><span class="icon property-icon"><img src="https://app.notion.com/icons/clock_gray.svg" style="width:14px;height:14px;display:block"/></span>Created time</th><td><time datetime="2026-07-26T19:09">July 26, 2026 7:09 PM</time></td></tr><tr class="property-row property-row-last_edited_time"><th><span class="icon property-icon"><img src="https://app.notion.com/icons/clock_gray.svg" style="width:14px;height:14px;display:block"/></span>Last edited time</th><td><time datetime="2026-07-31T11:59">July 31, 2026 11:59 AM</time></td></tr><tr class="property-row property-row-checkbox"><th><span class="icon property-icon"><img src="https://app.notion.com/icons/archive_gray.svg" style="width:14px;height:14px;display:block"/></span>Archive</th><td><input type="checkbox" class="checkbox checkbox-off" disabled=""/></td></tr></tbody></table></header><div class="page-body"><div id="3aa8b41e-eb64-9000-8000-000000000300" dir="auto" style="border:1px solid rgba(55,53,47,0.16);border-radius:6px;padding:0.75em 1em;margin:0.5em 0 1em 0"><p id="3aa8b41e-eb64-9000-8000-000000000301" class="" dir="auto"><strong>Jump to a section</strong></p><a href="#3aa8b41e-eb64-9000-8000-000000000310" class="table_of_contents-link table_of_contents-item">Quick Setup — Scans &amp; Chart Templates</a><a href="#3aa8b41e-eb64-9000-8000-000000000001" class="table_of_contents-link table_of_contents-item">1. Daily Checklist</a><a href="#3aa8b41e-eb64-9000-8000-000000000021" class="table_of_contents-link table_of_contents-item">2. Evening — scan &amp; build tomorrow's watchlist</a><a href="#3aa8b41e-eb64-9000-8000-00000000005a" class="table_of_contents-link table_of_contents-item">3. Morning — market regime check</a><a href="#3aa8b41e-eb64-9000-8000-000000000079" class="table_of_contents-link table_of_contents-item">4. 9:30–10:00 AM — Do nothing</a><a href="#3aa8b41e-eb64-9000-8000-00000000007f" class="table_of_contents-link table_of_contents-item">5. 10:00 AM–3:45 PM — Trigger and execute</a><a href="#3aa8b41e-eb64-9000-8000-000000000095" class="table_of_contents-link table_of_contents-item">6. 3:45–4:00 PM — Manage what you hold</a><a href="#3aa8b41e-eb64-9000-8000-00000000009c" class="table_of_contents-link table_of_contents-item">7. Which chart to open first — the skim order</a><a href="#3aa8b41e-eb64-9000-8000-0000000000c0" class="table_of_contents-link table_of_contents-item">8. Setup rules — the single source of truth</a><a href="#3aa8b41e-eb64-9000-8000-0000000000e9" class="table_of_contents-link table_of_contents-item">9. Patterns &amp; lookback windows</a><a href="#3aa8b41e-eb64-9000-8000-000000000123" class="table_of_contents-link table_of_contents-item">10. Entry, stop, size and target</a><a href="#3aa8b41e-eb64-9000-8000-000000000162" class="table_of_contents-link table_of_contents-item">11. Worked example — NVDA</a><a href="#3aa8b41e-eb64-9000-8000-000000000184" class="table_of_contents-link table_of_contents-item">12. Chart setup and time budget</a></div><hr id="3aa8b41e-eb64-9000-8000-000000000302" dir="auto"/><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.25em;line-height:1.3;margin:0"><h3 id="3aa8b41e-eb64-9000-8000-000000000310" style="display:inline-block"><mark class="highlight-purple" data-notion-highlight="purple">Quick Setup — Scans &amp; Chart Templates (do this once)</mark></h3></summary><div class="indented"><p id="3aa8b41e-eb64-9000-8000-000000000311" class="" dir="auto">Set these up once, then run them from the Daily Checklist below. Finviz runs the nightly discovery scan; Webull runs the charts, the trigger alerts, and the orders. The full reasoning for this split — and what to do if you would rather stay in one app — is under Scan A in the evening routine section further down.</p><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.125em;line-height:1.3;margin:0"><h4 id="3aa8b41e-eb64-9000-8000-000000000312" style="display:inline-block">Scan A — nightly watchlist (Finviz, free)</h4></summary><div class="indented"><p id="3aa8b41e-eb64-9000-8000-000000000313" class="" dir="auto">Screener → Filters → All tab. Set:</p><ul id="3aa8b41e-eb64-9000-8000-000000000314" class="bulleted-list" dir="auto"><li style="list-style-type:disc">Price: <strong>Over $10</strong></li></ul><ul id="3aa8b41e-eb64-9000-8000-000000000315" class="bulleted-list" dir="auto"><li style="list-style-type:disc">Market Cap: <strong>+Mid (over $2bln)</strong>, or +Small for a wider net</li></ul><ul id="3aa8b41e-eb64-9000-8000-000000000316" class="bulleted-list" dir="auto"><li style="list-style-type:disc">Average Volume: <strong>Over 1M</strong></li></ul><ul id="3aa8b41e-eb64-9000-8000-000000000317" class="bulleted-list" dir="auto"><li style="list-style-type:disc">52-Week High/Low: <strong>0-10% below High</strong></li></ul><ul id="3aa8b41e-eb64-9000-8000-000000000318" class="bulleted-list" dir="auto"><li style="list-style-type:disc">Simple Moving Average: <strong>Price above SMA50</strong></li></ul><ul id="3aa8b41e-eb64-9000-8000-000000000319" class="bulleted-list" dir="auto"><li style="list-style-type:disc">Simple Moving Average: <strong>Price above SMA200</strong></li></ul><ul id="3aa8b41e-eb64-9000-8000-00000000031a" class="bulleted-list" dir="auto"><li style="list-style-type:disc">Simple Moving Average: <strong>SMA50 above SMA200</strong></li></ul><ul id="3aa8b41e-eb64-9000-8000-00000000031b" class="bulleted-list" dir="auto"><li style="list-style-type:disc">Volatility: <strong>Week — Under 3%</strong></li></ul><p id="3aa8b41e-eb64-9000-8000-00000000031c" class="" dir="auto">Or paste this straight into the address bar:</p><pre id="3aa8b41e-eb64-9000-8000-00000000031d" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">https://finviz.com/screener.ashx?v=111&amp;f=cap_midover,sh_avgvol_o1000,sh_price_o10,ta_highlow52w_b0to10h,ta_sma200_pa,ta_sma200_sb50,ta_sma50_pa,ta_volatility_wo3</code></pre><p id="3aa8b41e-eb64-9000-8000-00000000031e" class="" dir="auto">Switch the view to <strong>Charts</strong> and set it to weekly — that turns the weekly skim into one scroll instead of forty tabs.</p><p id="3aa8b41e-eb64-9000-8000-00000000031f" class="" dir="auto">Add <strong>Earnings Date: Next 5 Days</strong> as a second, throwaway filter on the same screen to see which names to strike off tonight's list.</p></div></details><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.125em;line-height:1.3;margin:0"><h4 id="3aa8b41e-eb64-9000-8000-000000000320" style="display:inline-block">Scan B — intraday trigger (Webull price alerts)</h4></summary><div class="indented"><p id="3aa8b41e-eb64-9000-8000-000000000321" class="" dir="auto">With only 2–5 names, one alert per name beats any intraday scanner.</p><ol type="1" id="3aa8b41e-eb64-9000-8000-000000000322" class="numbered-list" start="1" dir="auto"><li>Draw the resistance line on the daily chart during your evening review.</li></ol><ol type="1" id="3aa8b41e-eb64-9000-8000-000000000323" class="numbered-list" start="2" dir="auto"><li>Tap the price on the chart and set a <strong>price alert</strong> at that exact level.</li></ol><ol type="1" id="3aa8b41e-eb64-9000-8000-000000000324" class="numbered-list" start="3" dir="auto"><li>When it fires, confirm by eye: above yesterday's close, above VWAP, volume running hot for the time of day.</li></ol><p id="3aa8b41e-eb64-9000-8000-000000000325" class="" dir="auto">Webull has no volume-adjusted-for-time-of-day field, so that last check stays manual — compare current volume to what you would expect by this hour from the 50-day average.</p></div></details><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.125em;line-height:1.3;margin:0"><h4 id="3aa8b41e-eb64-9000-8000-000000000326" style="display:inline-block">Chart templates (Webull)</h4></summary><div class="indented"><p id="3aa8b41e-eb64-9000-8000-000000000327" class="" dir="auto">Build once, save three layouts:</p><pre id="3aa8b41e-eb64-9000-8000-000000000328" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Indicators on every layout:
+  8 EMA
+  21 EMA
+  50 SMA
+  200 SMA
+  Volume</code></pre><ul id="3aa8b41e-eb64-9000-8000-000000000329" class="bulleted-list" dir="auto"><li style="list-style-type:disc"><strong>Weekly, 3 years</strong> — the skim</li></ul><ul id="3aa8b41e-eb64-9000-8000-00000000032a" class="bulleted-list" dir="auto"><li style="list-style-type:disc"><strong>Daily, 6 months</strong> — the work</li></ul><ul id="3aa8b41e-eb64-9000-8000-00000000032b" class="bulleted-list" dir="auto"><li style="list-style-type:disc"><strong>15-minute, 5 days, with VWAP added</strong> — the trigger</li></ul></div></details><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.125em;line-height:1.3;margin:0"><h4 id="3aa8b41e-eb64-9000-8000-00000000032c" style="display:inline-block">Order execution (Webull bracket order)</h4></summary><div class="indented"><p id="3aa8b41e-eb64-9000-8000-00000000032d" class="" dir="auto">Use a bracket order: entry limit at resistance + 0.5–1%, stop-loss at your planned stop, take-profit at your planned target, all placed at once. That way the stop exists the instant the entry fills, even if you step away from the screen.</p></div></details></div></details><hr id="3aa8b41e-eb64-9000-8000-00000000032e" dir="auto"/><aside class="block-color-blue_background callout" data-notion-callout="" data-notion-callout-icon="🗓️" data-notion-callout-background="blue_background" style="white-space:pre-wrap;display:flex" id="3aa8b41e-eb64-9000-8000-000000000330" dir="ltr"><div style="font-size:1.5em"><span class="icon" data-emoji="🗓️"></span></div><div style="width:100%"><p id="3aa8b41e-eb64-9000-8000-000000000331" class="" dir="auto"><strong>Part 1 — Today's Routine.</strong> Run these six sections in order, every trading day.</p></div></aside><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.25em;line-height:1.3;margin:0"><h3 id="3aa8b41e-eb64-9000-8000-000000000001" style="display:inline-block"><mark class="highlight-teal" data-notion-highlight="teal">Daily Checklist — the whole routine on one screen</mark></h3></summary><div class="indented"><p id="3aa8b41e-eb64-9000-8000-000000000002" class="" dir="auto">Run this page. Everything below it is the explanation layer — open it when a step is unclear, not every day.</p><h2 id="3aa8b41e-eb64-9000-8000-000000000003" class="" dir="auto">Evening — after the close (~20 minutes)</h2><ul id="3aa8b41e-eb64-9000-8000-000000000004" class="to-do-list"><li><div class="checkbox checkbox-off"></div> <span class="to-do-children-unchecked">Run Scan A, the watchlist scan. Expect 20–80 names.</span></li></ul><ul id="3aa8b41e-eb64-9000-8000-000000000005" class="to-do-list"><li><div class="checkbox checkbox-off"></div> <span class="to-do-children-unchecked">Weekly chart, 5–10 seconds per name. Keep only clean uptrends with no wall of overhead supply.</span></li></ul><ul id="3aa8b41e-eb64-9000-8000-000000000006" class="to-do-list"><li><div class="checkbox checkbox-off"></div> <span class="to-do-children-unchecked">Daily chart on the survivors. Keep only the ones sitting in a 2–8 week base or flag.</span></li></ul><ul id="3aa8b41e-eb64-9000-8000-000000000007" class="to-do-list"><li><div class="checkbox checkbox-off"></div> <span class="to-do-children-unchecked">Check the earnings date. Inside 7 trading days → drop it.</span></li></ul><ul id="3aa8b41e-eb64-9000-8000-000000000008" class="to-do-list"><li><div class="checkbox checkbox-off"></div> <span class="to-do-children-unchecked">On each keeper: draw the resistance line and the stop level, then write down entry, stop, target, and share count.</span></li></ul><ul id="3aa8b41e-eb64-9000-8000-000000000009" class="to-do-list"><li><div class="checkbox checkbox-off"></div> <span class="to-do-children-unchecked">Result: 2–5 names with a written plan. That is tomorrow's watchlist.</span></li></ul><h2 id="3aa8b41e-eb64-9000-8000-00000000000a" class="" dir="auto">7:00–9:15 AM ET — Regime check (~5 minutes)</h2><ul id="3aa8b41e-eb64-9000-8000-00000000000b" class="to-do-list"><li><div class="checkbox checkbox-off"></div> <span class="to-do-children-unchecked">S&amp;P 500 above its 50-day MA?</span></li></ul><ul id="3aa8b41e-eb64-9000-8000-00000000000c" class="to-do-list"><li><div class="checkbox checkbox-off"></div> <span class="to-do-children-unchecked">Nasdaq above its 50-day MA?</span></li></ul><ul id="3aa8b41e-eb64-9000-8000-00000000000d" class="to-do-list"><li><div class="checkbox checkbox-off"></div> <span class="to-do-children-unchecked">Futures not deeply red?</span></li></ul><ul id="3aa8b41e-eb64-9000-8000-00000000000e" class="to-do-list"><li><div class="checkbox checkbox-off"></div> <span class="to-do-children-unchecked">No high-impact release on the calendar today?</span></li></ul><ul id="3aa8b41e-eb64-9000-8000-00000000000f" class="to-do-list"><li><div class="checkbox checkbox-off"></div> <span class="to-do-children-unchecked">Set today's position size and max new entries from the regime scorecard.</span></li></ul><h2 id="3aa8b41e-eb64-9000-8000-000000000010" class="" dir="auto">9:30–10:00 AM — Do nothing</h2><ul id="3aa8b41e-eb64-9000-8000-000000000011" class="to-do-list"><li><div class="checkbox checkbox-off"></div> <span class="to-do-children-unchecked">No entries in the first 30 minutes. Watch only.</span></li></ul><h2 id="3aa8b41e-eb64-9000-8000-000000000012" class="" dir="auto">10:00 AM–3:45 PM — Trigger and execute</h2><ul id="3aa8b41e-eb64-9000-8000-000000000013" class="to-do-list"><li><div class="checkbox checkbox-off"></div> <span class="to-do-children-unchecked">Has any watchlist name traded through the resistance line I drew last night?</span></li></ul><ul id="3aa8b41e-eb64-9000-8000-000000000014" class="to-do-list"><li><div class="checkbox checkbox-off"></div> <span class="to-do-children-unchecked">Is it above yesterday's close, above VWAP, and running above 1.5x its normal volume for this time of day?</span></li></ul><ul id="3aa8b41e-eb64-9000-8000-000000000015" class="to-do-list"><li><div class="checkbox checkbox-off"></div> <span class="to-do-children-unchecked">If yes: buy at resistance +0.5% to 1%, and place the stop in the same minute.</span></li></ul><ul id="3aa8b41e-eb64-9000-8000-000000000016" class="to-do-list"><li><div class="checkbox checkbox-off"></div> <span class="to-do-children-unchecked">If no: do nothing. A breakout you miss costs you zero.</span></li></ul><h2 id="3aa8b41e-eb64-9000-8000-000000000017" class="" dir="auto">3:45–4:00 PM — Manage</h2><ul id="3aa8b41e-eb64-9000-8000-000000000018" class="to-do-list"><li><div class="checkbox checkbox-off"></div> <span class="to-do-children-unchecked">Any position closing back inside its base → exit, do not wait for the stop.</span></li></ul><ul id="3aa8b41e-eb64-9000-8000-000000000019" class="to-do-list"><li><div class="checkbox checkbox-off"></div> <span class="to-do-children-unchecked">Any position at 2R → sell half, move the stop to breakeven.</span></li></ul><ul id="3aa8b41e-eb64-9000-8000-00000000001a" class="to-do-list"><li><div class="checkbox checkbox-off"></div> <span class="to-do-children-unchecked">Anything you are trailing → stop stays under the 8 EMA.</span></li></ul><h2 id="3aa8b41e-eb64-9000-8000-00000000001b" class="" dir="auto">Hard rules</h2><ul id="3aa8b41e-eb64-9000-8000-00000000001c" class="bulleted-list" dir="auto"><li style="list-style-type:disc">Never chase. More than 1% above the resistance line, the trade is gone. Wait for the next one.</li></ul><ul id="3aa8b41e-eb64-9000-8000-00000000001d" class="bulleted-list" dir="auto"><li style="list-style-type:disc">Never hold a fresh breakout through an earnings report.</li></ul><ul id="3aa8b41e-eb64-9000-8000-00000000001e" class="bulleted-list" dir="auto"><li style="list-style-type:disc">Never let total risk across all open positions exceed your heat cap.</li></ul><ul id="3aa8b41e-eb64-9000-8000-00000000001f" class="bulleted-list" dir="auto"><li style="list-style-type:disc">Never widen a stop. Moving it further away is not risk management, it is hoping.</li></ul></div></details><hr id="3aa8b41e-eb64-9000-8000-000000000020" dir="auto"/><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.25em;line-height:1.3;margin:0"><h3 id="3aa8b41e-eb64-9000-8000-000000000021" style="display:inline-block"><mark class="highlight-teal" data-notion-highlight="teal">4:15–5:00 PM ET — After the close: scan and build tomorrow's watchlist</mark></h3></summary><div class="indented"><p id="3aa8b41e-eb64-9000-8000-000000000022" class="" dir="auto">The pipeline starts here, the evening before you trade, not at 11 AM.</p><p id="3aa8b41e-eb64-9000-8000-000000000023" class="" dir="auto">Reason: a breakout happens in a few minutes. If you are still discovering the stock while the breakout is running, you are already late, and you will end up chasing. Discovery and markup happen when the market is closed. During the session you only pull the trigger on work you already did.</p><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.125em;line-height:1.3;margin:0"><h4 id="3aa8b41e-eb64-9000-8000-000000000024" style="display:inline-block">Scan A — the watchlist scan</h4></summary><div class="indented"><p id="3aa8b41e-eb64-9000-8000-000000000025" class="" dir="auto">Purpose: find every stock that is <em>capable</em> of a breakout. Not one that is breaking out right now.</p><p id="3aa8b41e-eb64-9000-8000-000000000026" class="" dir="auto">No intraday conditions in this scan. None. That is the whole point.</p><script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js" integrity="sha512-7Z9J3l1+EYfeaPKcGXu3MS/7T+w19WtKQY/n+xzmw4hZhJ9tyYmcUS+4QqAlzhicE5LAfMQSF3iFTK9bQdTxXg==" crossorigin="anonymous" referrerPolicy="no-referrer"></script><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" integrity="sha512-tN7Ec6zAFaVSG3TpNAKtk4DOHNpSwKHxxrsiw4GHKESGPs5njn/0sMCUMl2svV4wo4BK/rCP7juYz+zx+l6oeQ==" crossorigin="anonymous" referrerPolicy="no-referrer"/><pre id="3aa8b41e-eb64-9000-8000-000000000027" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Liquidity and quality
+  Last price               &gt;  $10
+  Market cap               &gt;  $1,000,000,000
+  Average volume (20 day)  &gt;  1,000,000 shares
+
+Trend
+  Close                    &gt;  200 SMA
+  Close                    &gt;  50 SMA
+  50 SMA                   &gt;  200 SMA
+
+Position in the range
+  Within 15% of the 52-week high
+
+Tightness (pick whichever your scanner has)
+  ATR(14) / price          &lt;  5%
+      or
+  (10-day high - 10-day low) / price  &lt;  10%</code></pre><p id="3aa8b41e-eb64-9000-8000-000000000028" class="" dir="auto">Expected output: <strong>20–80 names</strong>. If you get 3, the market is weak and that is real information. If you get 400, tighten the 52-week-high and tightness filters.</p><h2 id="3aa8b41e-eb64-9000-8000-000000000029" class="" dir="auto">Why each filter is there</h2><ul id="3aa8b41e-eb64-9000-8000-00000000002a" class="bulleted-list" dir="auto"><li style="list-style-type:disc"><strong>$10 and $1B and 1M shares</strong> — liquidity. You need a tight spread and enough volume that your stop actually fills where you put it.</li></ul><ul id="3aa8b41e-eb64-9000-8000-00000000002b" class="bulleted-list" dir="auto"><li style="list-style-type:disc"><strong>Above 200 SMA</strong> — the long-term trend is healthy. This filter alone removes most of the ways to lose money.</li></ul><ul id="3aa8b41e-eb64-9000-8000-00000000002c" class="bulleted-list" dir="auto"><li style="list-style-type:disc"><strong>50 SMA above 200 SMA</strong> — the medium-term trend is stronger than the long-term trend. The stock is accelerating, not decaying.</li></ul><ul id="3aa8b41e-eb64-9000-8000-00000000002d" class="bulleted-list" dir="auto"><li style="list-style-type:disc"><strong>Within 15% of the 52-week high</strong> — stocks that break out to new highs have no trapped sellers above them. This is the filter you loosen first when the market is weak.</li></ul><ul id="3aa8b41e-eb64-9000-8000-00000000002e" class="bulleted-list" dir="auto"><li style="list-style-type:disc"><strong>Tightness</strong> — a proxy for "is it resting?". A stock swinging 8% a day is not building a base, and its stop would be too far away to trade.</li></ul><h2 id="3aa8b41e-eb64-9000-8000-00000000002f" class="" dir="auto">Field names on broker scanners</h2><p id="3aa8b41e-eb64-9000-8000-000000000030" class="" dir="auto">Most broker scanners have all of these, sometimes under different labels:</p><ul id="3aa8b41e-eb64-9000-8000-000000000031" class="bulleted-list" dir="auto"><li style="list-style-type:disc"><strong>thinkorswim</strong> — Stock Hacker. The trend conditions go in as study filters: one <code class="code">SimpleMovingAvg</code> filter for price versus length 200, a second for length 50, and <code class="code">ATR</code> for tightness. Distance from the 52-week high is not a standard filter — add the 52-week-high column to the results table and sort by it instead.</li></ul><ul id="3aa8b41e-eb64-9000-8000-000000000032" class="bulleted-list" dir="auto"><li style="list-style-type:disc"><strong>IBKR</strong> — Market Scanner. Use "Price vs. SMA(200)" and "Price vs. SMA(50)" as percent-above filters, and "% below 52-week high".</li></ul><ul id="3aa8b41e-eb64-9000-8000-000000000033" class="bulleted-list" dir="auto"><li style="list-style-type:disc"><strong>Webull</strong> — covers the descriptive half (region, price, market cap, volume, turnover rate), but its technical section is a fixed list of <em>preset signals</em>: MACD golden cross, MA5 crossing above MA10, RSI states, candlestick patterns. There is no way to write "price above the 200-day SMA" or "50 SMA above 200 SMA". Webull cannot run Scan A on its own — see below.</li></ul><h2 id="3aa8b41e-eb64-9000-8000-0000000001a0" class="" dir="auto">When your broker's screener cannot express Scan A</h2><p id="3aa8b41e-eb64-9000-8000-0000000001a1" class="" dir="auto">Scan A depends on three conditions many broker screeners simply cannot state: price above the 200 SMA, price above the 50 SMA, and the 50 above the 200. Without them the scan degrades into "large liquid stocks", which is about 1,500 names and useless as a nightly list.</p><p id="3aa8b41e-eb64-9000-8000-0000000001a2" class="" dir="auto">The fix is to split the tools: scan where the filters exist, trade where your money is.</p><pre id="3aa8b41e-eb64-9000-8000-0000000001a3" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Scan A   ->  Finviz free screener
+Pass 1   ->  Finviz "Charts" view, switched to Weekly
+Pass 2   ->  Webull daily chart, 8/21 EMA + 50/200 SMA + volume
+Scan B   ->  Webull price alert on each resistance line
+Order    ->  Webull bracket order</code></pre><p id="3aa8b41e-eb64-9000-8000-0000000001a4" class="" dir="auto">The exact Finviz filter values and a ready-to-paste URL are in <a href="#3aa8b41e-eb64-9000-8000-000000000310">Quick Setup — Scans &amp; Chart Templates</a> at the top of this page, so they only need maintaining in one place.</p><p id="3aa8b41e-eb64-9000-8000-0000000001af" class="" dir="auto">Two Finviz features that fit this routine unusually well. The <strong>Charts view</strong> renders every result as a thumbnail and can be switched to weekly, which turns Pass 1 into a single scroll instead of forty tabs. And the <strong>Earnings Date</strong> filter set to "Next 5 Days" gives you the exact list of names to delete from tonight's watchlist.</p><p id="3aa8b41e-eb64-9000-8000-0000000001b0" class="" dir="auto">Everything after the scan happens in Webull. Its charting handles 8 EMA, 21 EMA, 50 SMA, 200 SMA and VWAP, which is all Pass 2 and Pass 3 need, and its price alerts are a better Scan B than any intraday screener.</p><p id="3aa8b41e-eb64-9000-8000-0000000001b1" class="" dir="auto">If you would rather stay in one app, you can build the descriptive half of Scan A in Webull and save it — price over $10, market cap over $1B, volume over 1M. Just be honest about what that leaves you: roughly 1,500 results and the trend filtering done by eye, which nobody sustains nightly.</p></div></details><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.125em;line-height:1.3;margin:0"><h4 id="3aa8b41e-eb64-9000-8000-000000000035" style="display:inline-block">Scan B — the trigger scan</h4></summary><div class="indented"><p id="3aa8b41e-eb64-9000-8000-000000000036" class="" dir="auto">Purpose: tell you when a name you already marked up is actually going.</p><p id="3aa8b41e-eb64-9000-8000-000000000037" class="" dir="auto">This scan runs against your watchlist only — typically 2 to 5 symbols — not the whole market.</p><pre id="3aa8b41e-eb64-9000-8000-000000000038" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Universe:  my watchlist only
+  Price crossing above  the resistance line I drew
+  Relative volume       &gt; 1.5   (see the note below)
+  Price                 &gt; yesterday's close
+  Price                 &gt; VWAP</code></pre><p id="3aa8b41e-eb64-9000-8000-000000000039" class="" dir="auto">In practice, with 2–5 names, a price alert on each resistance line does the same job and is more reliable than an intraday scanner. Set the alert the night before, at the same time you draw the line.</p></div></details><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.125em;line-height:1.3;margin:0"><h4 id="3aa8b41e-eb64-9000-8000-00000000003a" style="display:inline-block"><mark class="highlight-red" data-notion-highlight="red">Why the old scan returned zero results</mark></h4></summary><div class="indented"><p id="3aa8b41e-eb64-9000-8000-00000000003b" class="" dir="auto">The old scan asked for price &gt; $10, market cap &gt; $1B, average volume &gt; 1M, today's volume &gt; 1.5x average, today's gain &gt; 3%, above the 50 and 200 SMA, and within 10% of the 52-week high — all at 11 AM, all at once. Two things were breaking it.</p><h2 id="3aa8b41e-eb64-9000-8000-00000000003c" class="" dir="auto">1. "Today's volume &gt; 1.5x average" measured at 11 AM</h2><p id="3aa8b41e-eb64-9000-8000-00000000003d" class="" dir="auto">Almost every scanner compares <em>cumulative volume so far today</em> against a <em>full day's</em> average. At 11 AM only about 40–50% of a normal session has traded. So asking for 1.5x a full day, half way through the morning, is really asking for about 3x normal pace.</p><pre id="3aa8b41e-eb64-9000-8000-00000000003e" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Normal day, cumulative volume:
+
+  9:30 - 10:30   ~30-35% of the day
+ 10:30 - 11:00   ~10%
+        11:00    ~40-50% of the day is done
+
+Asking for 1.5x full-day volume by 11:00
+   =  ~3x the normal pace
+   =  a gap-and-news stock, not a base breakout</code></pre><p id="3aa8b41e-eb64-9000-8000-00000000003f" class="" dir="auto">On a typical day maybe five stocks in the entire market qualify, and they are gap-ups on news — the exact opposite of the quiet bases you want.</p><p id="3aa8b41e-eb64-9000-8000-000000000040" class="" dir="auto">Fixes, best first:</p><ul id="3aa8b41e-eb64-9000-8000-000000000041" class="bulleted-list" dir="auto"><li style="list-style-type:disc">Use a <strong>time-adjusted</strong> relative volume field if your scanner has one — it compares against the average volume <em>by this hour</em>, which is what you actually meant. Keep the threshold at 1.5.</li></ul><ul id="3aa8b41e-eb64-9000-8000-000000000042" class="bulleted-list" dir="auto"><li style="list-style-type:disc">If it only has the untimed version, set it to <strong>0.7–0.9</strong> for an 11 AM run. That is roughly the same thing.</li></ul><ul id="3aa8b41e-eb64-9000-8000-000000000043" class="bulleted-list" dir="auto"><li style="list-style-type:disc">Best of all: move the volume check out of the discovery scan entirely, which is what Scan A above does.</li></ul><h2 id="3aa8b41e-eb64-9000-8000-000000000044" class="" dir="auto">2. Filter stacking</h2><p id="3aa8b41e-eb64-9000-8000-000000000045" class="" dir="auto">Each filter is reasonable alone. ANDed together they multiply down to nothing.</p><pre id="3aa8b41e-eb64-9000-8000-000000000046" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">US stocks                              ~6,000
+  cap &gt; $1B and avg vol &gt; 1M       ~1,500-2,000
+  + above 50 and 200 SMA               ~600-900
+  + within 10% of 52-week high         ~150-400   (near 0 in a correction)
+  + up 3% today                           ~5-30
+  + 1.5x volume at 11 AM                    0-3</code></pre><h2 id="3aa8b41e-eb64-9000-8000-000000000047" class="" dir="auto">What was not the problem</h2><p id="3aa8b41e-eb64-9000-8000-000000000048" class="" dir="auto">The <strong>$10 price floor</strong>. Nearly every company worth over $1B trades above $10, so that filter is removing almost nothing. Removing it will not bring back results. Keep it.</p><h2 id="3aa8b41e-eb64-9000-8000-000000000049" class="" dir="auto">The "today's gain 3%" filter is deleted</h2><p id="3aa8b41e-eb64-9000-8000-00000000004a" class="" dir="auto">It contradicts the first rule of the entry section. Screening for stocks that already moved 3%, then buying them above resistance an hour later, <em>is</em> chasing. You want to be there before the 3%, not after it.</p></div></details><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.125em;line-height:1.3;margin:0"><h4 id="3aa8b41e-eb64-9000-8000-00000000004b" style="display:inline-block">Loosening ladder — when the scan still returns nothing</h4></summary><div class="indented"><p id="3aa8b41e-eb64-9000-8000-00000000004c" class="" dir="auto">Loosen in this order, one step at a time, and stop as soon as you have 20 names:</p><ol type="1" id="3aa8b41e-eb64-9000-8000-00000000004d" class="numbered-list" start="1" dir="auto"><li>52-week high proximity: 15% → 20% → 25%</li></ol><ol type="1" id="3aa8b41e-eb64-9000-8000-00000000004e" class="numbered-list" start="2" dir="auto"><li>Tightness: ATR 5% → 7%, or drop it and judge by eye</li></ol><ol type="1" id="3aa8b41e-eb64-9000-8000-00000000004f" class="numbered-list" start="3" dir="auto"><li>Average volume: 1M → 500k (only if you are trading small size)</li></ol><ol type="1" id="3aa8b41e-eb64-9000-8000-000000000050" class="numbered-list" start="4" dir="auto"><li>Market cap: $1B → $500M</li></ol><p id="3aa8b41e-eb64-9000-8000-000000000051" class="" dir="auto">Never loosen these — they are the strategy, not a preference:</p><ul id="3aa8b41e-eb64-9000-8000-000000000052" class="bulleted-list" dir="auto"><li style="list-style-type:disc">Close above the 200 SMA</li></ul><ul id="3aa8b41e-eb64-9000-8000-000000000053" class="bulleted-list" dir="auto"><li style="list-style-type:disc">50 SMA above the 200 SMA</li></ul><p id="3aa8b41e-eb64-9000-8000-000000000054" class="" dir="auto">If you have gone through the whole ladder and still have under 10 names above the 200 SMA, the answer is not a looser scan. The answer is that breakouts are not working right now. Sit out.</p></div></details><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.125em;line-height:1.3;margin:0"><h4 id="3aa8b41e-eb64-9000-8000-000000000055" style="display:inline-block">Mark up the survivors</h4></summary><div class="indented"><p id="3aa8b41e-eb64-9000-8000-000000000056" class="" dir="auto">Run the scan output through the chart skim order below (weekly, then daily). For each name that survives, write the plan down before you close the laptop:</p><pre id="3aa8b41e-eb64-9000-8000-000000000057" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Ticker:        ABCD
+Pattern:       flat base, 6 weeks
+Resistance:    $110.00     &lt;- horizontal line drawn on the daily
+Entry:         $110.55     (resistance + 0.5%)
+Stop:          $103.50     (below the base low at $104)
+Risk/share:    $7.05
+Shares:        (dollar risk) / 7.05
+Target 1:      $124.65     (2R)
+Earnings:      Nov 12      (18 trading days away - clear)
+Alert set:     yes, at $110.00</code></pre><p id="3aa8b41e-eb64-9000-8000-000000000058" class="" dir="auto">A name without a written plan is not on the watchlist. If you have not decided the stop before the open, you will decide it during the breakout, and you will decide it wrong.</p></div></details></div></details><hr id="3aa8b41e-eb64-9000-8000-000000000059" dir="auto"/><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.25em;line-height:1.3;margin:0"><h3 id="3aa8b41e-eb64-9000-8000-00000000005a" style="display:inline-block"><mark class="highlight-teal" data-notion-highlight="teal">7:00–9:15 AM ET — Market regime check</mark></h3></summary><div class="indented"><p id="3aa8b41e-eb64-9000-8000-00000000005b" class="" dir="auto">Five minutes. This does not pick stocks. It sets your position size for the day, and occasionally tells you not to trade at all.</p><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.125em;line-height:1.3;margin:0"><h4 id="3aa8b41e-eb64-9000-8000-00000000005c" style="display:inline-block">Is the S&amp;P 500 above its 50-day MA?</h4></summary><div class="indented"><p id="3aa8b41e-eb64-9000-8000-00000000005d" class="" dir="auto">Daily chart of SPX or SPY.</p><p id="3aa8b41e-eb64-9000-8000-00000000005e" class="" dir="auto">The S&amp;P 500 represents the overall market, and most stocks follow the market. A good setup in a bad tape still fails.</p><p id="3aa8b41e-eb64-9000-8000-00000000005f" class="" dir="auto">✅ Above the 50 SMA → breakouts work, trade normally.</p><p id="3aa8b41e-eb64-9000-8000-000000000060" class="" dir="auto">⚠️ Below → cut your size and take fewer trades.</p></div></details><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.125em;line-height:1.3;margin:0"><h4 id="3aa8b41e-eb64-9000-8000-000000000061" style="display:inline-block">Is the Nasdaq above its 50-day MA?</h4></summary><div class="indented"><p id="3aa8b41e-eb64-9000-8000-000000000062" class="" dir="auto">Daily chart of IXIC or QQQ.</p><p id="3aa8b41e-eb64-9000-8000-000000000063" class="" dir="auto">Your breakout candidates are mostly technology and growth names, so the Nasdaq is the more honest read on whether <em>your</em> kind of stock is healthy. When the S&amp;P holds up but the Nasdaq is under its 50-day, that usually means money is rotating into defensives and your setups will keep failing.</p></div></details><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.125em;line-height:1.3;margin:0"><h4 id="3aa8b41e-eb64-9000-8000-000000000064" style="display:inline-block">Are futures green or red?</h4></summary><div class="indented"><p id="3aa8b41e-eb64-9000-8000-000000000065" class="" dir="auto">Futures trade overnight and show whether traders are buying or selling before the bell.</p><pre id="3aa8b41e-eb64-9000-8000-000000000066" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">ES1!   S&amp;P 500 futures
+NQ1!   Nasdaq futures
+
+Chart: 15 minute. No indicators. Just the % change.</code></pre><ul id="3aa8b41e-eb64-9000-8000-000000000067" class="bulleted-list" dir="auto"><li style="list-style-type:disc">Flat to green → nothing to do, proceed.</li></ul><ul id="3aa8b41e-eb64-9000-8000-000000000068" class="bulleted-list" dir="auto"><li style="list-style-type:disc">Worse than −0.75% → no entries before 10:30. Gap-down mornings reverse hard in both directions.</li></ul><p id="3aa8b41e-eb64-9000-8000-000000000069" class="" dir="auto">Futures only affect the first hour of the day. Do not let a red pre-market cancel a breakout that triggers at 2 PM.</p></div></details><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.125em;line-height:1.3;margin:0"><h4 id="3aa8b41e-eb64-9000-8000-00000000006a" style="display:inline-block">Any high-impact news today?</h4></summary><div class="indented"><p id="3aa8b41e-eb64-9000-8000-00000000006b" class="" dir="auto">A perfect setup can fail purely because of a macro surprise. You buy the NVDA breakout at +5%, the Fed surprises on rates an hour later, the whole market drops, your stop is hit, and nothing was wrong with your analysis.</p><p id="3aa8b41e-eb64-9000-8000-00000000006c" class="" dir="auto">Check any economic calendar for <strong>high impact</strong> US events only:</p><pre id="3aa8b41e-eb64-9000-8000-00000000006d" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">CPI
+Fed interest rate decision (FOMC)
+Jobs report (NFP)
+PPI
+GDP</code></pre><ul id="3aa8b41e-eb64-9000-8000-00000000006e" class="bulleted-list" dir="auto"><li style="list-style-type:disc">Release at 8:30 AM → no new entries before 10:00.</li></ul><ul id="3aa8b41e-eb64-9000-8000-00000000006f" class="bulleted-list" dir="auto"><li style="list-style-type:disc">FOMC at 2:00 PM → no new entries after 1:30. The move before the announcement is meaningless.</li></ul></div></details><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.125em;line-height:1.3;margin:0"><h4 id="3aa8b41e-eb64-9000-8000-000000000070" style="display:inline-block">Regime scorecard — what today's answers mean</h4></summary><div class="indented"><table id="3aa8b41e-eb64-9000-8000-000000000071" class="simple-table" dir="ltr"><thead class="simple-table-header"><tr id="3aa8b41e-eb64-9000-8000-000000000072" dir="ltr"><th id="rg01" class="simple-table-header-color simple-table-header">Market</th><th id="rg02" class="simple-table-header-color simple-table-header">Position size</th><th id="rg03" class="simple-table-header-color simple-table-header">Max new entries today</th></tr></thead><tbody><tr id="3aa8b41e-eb64-9000-8000-000000000073" dir="ltr"><td id="rg01" class="">Both indexes above a rising 50-day MA</td><td id="rg02" class="">Full</td><td id="rg03" class="">Up to your position cap</td></tr><tr id="3aa8b41e-eb64-9000-8000-000000000074" dir="ltr"><td id="rg01" class="">One above, one below</td><td id="rg02" class="">Half</td><td id="rg03" class="">2</td></tr><tr id="3aa8b41e-eb64-9000-8000-000000000075" dir="ltr"><td id="rg01" class="">Both below the 50-day MA</td><td id="rg02" class="">None</td><td id="rg03" class="">0 — manage what you already hold</td></tr><tr id="3aa8b41e-eb64-9000-8000-000000000076" dir="ltr"><td id="rg01" class="">Either index below its 200-day MA</td><td id="rg02" class="">None</td><td id="rg03" class="">0 — stand aside and keep scanning</td></tr></tbody></table><p id="3aa8b41e-eb64-9000-8000-000000000077" class="" dir="auto">Keep scanning every evening even when you are standing aside. The names that build bases <em>during</em> a correction are the ones that lead when it ends.</p></div></details></div></details><hr id="3aa8b41e-eb64-9000-8000-000000000078" dir="auto"/><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.25em;line-height:1.3;margin:0"><h3 id="3aa8b41e-eb64-9000-8000-000000000079" style="display:inline-block"><mark class="highlight-orange" data-notion-highlight="orange">9:30–10:00 AM — Do nothing</mark></h3></summary><div class="indented"><p id="3aa8b41e-eb64-9000-8000-00000000007a" class="" dir="auto">No entries in the first 30 minutes.</p><p id="3aa8b41e-eb64-9000-8000-00000000007b" class="" dir="auto">The open is the widest spreads and the most fake moves of the day: overnight orders clearing, gaps filling, algorithms probing both sides. A "breakout" at 9:32 on a one-minute burst reverses more often than it continues.</p><p id="3aa8b41e-eb64-9000-8000-00000000007c" class="" dir="auto">You are not missing anything. A real breakout is still above the line at 10:15, and by then you can see whether the volume is real.</p><p id="3aa8b41e-eb64-9000-8000-00000000007d" class="" dir="auto">Use the half hour to re-read your written plans and confirm your alerts are set.</p></div></details><hr id="3aa8b41e-eb64-9000-8000-00000000007e" dir="auto"/><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.25em;line-height:1.3;margin:0"><h3 id="3aa8b41e-eb64-9000-8000-00000000007f" style="display:inline-block"><mark class="highlight-orange" data-notion-highlight="orange">10:00 AM–3:45 PM — Trigger and execute</mark></h3></summary><div class="indented"><p id="3aa8b41e-eb64-9000-8000-000000000080" class="" dir="auto">You are not looking for new ideas during the session. You are only checking whether last night's plans triggered.</p><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.125em;line-height:1.3;margin:0"><h4 id="3aa8b41e-eb64-9000-8000-000000000081" style="display:inline-block">The three intraday confirmations</h4></summary><div class="indented"><p id="3aa8b41e-eb64-9000-8000-000000000082" class="" dir="auto">Chart: 15-minute, with VWAP and a horizontal line at yesterday's close. All three must be true.</p><h2 id="3aa8b41e-eb64-9000-8000-000000000083" class="" dir="auto">1. Is it making higher highs today?</h2><p id="3aa8b41e-eb64-9000-8000-000000000084" class="" dir="auto">Each new peak higher than the last, each dip shallower than the last.</p><pre id="3aa8b41e-eb64-9000-8000-000000000085" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Strong                    Weak
+ 9:30   $100               $100
+10:00   $102               $102
+10:30   $101               $ 99
+11:00   $105               $101
+11:30   $104               $ 98
+12:00   $108
+        higher highs       no direction</code></pre><h2 id="3aa8b41e-eb64-9000-8000-000000000086" class="" dir="auto">2. Is it above yesterday's close?</h2><p id="3aa8b41e-eb64-9000-8000-000000000087" class="" dir="auto">Draw a horizontal line at yesterday's closing price. Price above it means today's buyers are still in control of the gains. Price sliding back under it means the move is being sold.</p><pre id="3aa8b41e-eb64-9000-8000-000000000088" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">    Today
+55   *
+     *
+50   ---------------- yesterday's close
+     *
+48
+
+Above the line = keep it. Below = drop it for today.</code></pre><h2 id="3aa8b41e-eb64-9000-8000-000000000089" class="" dir="auto">3. Is the volume real?</h2><p id="3aa8b41e-eb64-9000-8000-00000000008a" class="" dir="auto">A breakout without volume is the most expensive thing on this page. Volume answers one question: are institutions participating, or is this a few retail orders drifting the price up?</p><p id="3aa8b41e-eb64-9000-8000-00000000008b" class="" dir="auto">Add a relative volume indicator to the chart and read it against the time of day:</p><pre id="3aa8b41e-eb64-9000-8000-00000000008c" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Time-adjusted RVOL  &gt; 1.5   good
+                    &gt; 2.0   excellent
+
+Or by hand:
+  average daily volume     2,000,000
+  by 11 AM you'd expect     ~900,000  (~45% of a day)
+  today by 11 AM          1,500,000   = strong
+
+Price      /\            Price      /
+        __/                      __/
+Volume ||||||||||||     Volume  ||
+       ||||||||||||             ||
+        real                    fake</code></pre><p id="3aa8b41e-eb64-9000-8000-00000000008d" class="" dir="auto">VWAP is the quick version of the same idea: a stock that stays above VWAP all day is being accumulated, one that keeps sinking under it is being distributed.</p></div></details><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.125em;line-height:1.3;margin:0"><h4 id="3aa8b41e-eb64-9000-8000-00000000008e" style="display:inline-block">Placing the trade</h4></summary><div class="indented"><ol type="1" id="3aa8b41e-eb64-9000-8000-00000000008f" class="numbered-list" start="1" dir="auto"><li>Buy at the entry price from your written plan — resistance plus 0.5% to 1%. Not higher.</li></ol><ol type="1" id="3aa8b41e-eb64-9000-8000-000000000090" class="numbered-list" start="2" dir="auto"><li>Place the stop order in the same minute, at the level from your plan. Not later, not "once it settles down".</li></ol><ol type="1" id="3aa8b41e-eb64-9000-8000-000000000091" class="numbered-list" start="3" dir="auto"><li>Use the share count from your plan. Do not re-size in the moment because it "looks strong".</li></ol><p id="3aa8b41e-eb64-9000-8000-000000000092" class="" dir="auto">If you cannot watch the screen, put in a stop-limit buy at the entry with an attached stop-loss — a bracket order — the night before. That mechanically enforces the no-chasing rule, because a limit will simply not fill if the stock gaps past it.</p><p id="3aa8b41e-eb64-9000-8000-000000000093" class="" dir="auto">If it is already more than 1% above the line by the time you look: it is gone. Let it go. There will be another one next week, and stocks bought late are the ones that stop you out.</p></div></details></div></details><hr id="3aa8b41e-eb64-9000-8000-000000000094" dir="auto"/><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.25em;line-height:1.3;margin:0"><h3 id="3aa8b41e-eb64-9000-8000-000000000095" style="display:inline-block"><mark class="highlight-orange" data-notion-highlight="orange">3:45–4:00 PM — Manage what you hold</mark></h3></summary><div class="indented"><p id="3aa8b41e-eb64-9000-8000-000000000096" class="" dir="auto">Your hard stop orders sit in the market all day and protect you without supervision. This 15 minutes is for the decisions a stop order cannot make.</p><ul id="3aa8b41e-eb64-9000-8000-000000000097" class="bulleted-list" dir="auto"><li style="list-style-type:disc"><strong>Failed breakout</strong> — price closing back <em>inside</em> the base it broke out of, on the same day or the next. Exit now at the close, do not wait for the stop. The reason you bought is gone, so the position should be too.</li></ul><ul id="3aa8b41e-eb64-9000-8000-000000000098" class="bulleted-list" dir="auto"><li style="list-style-type:disc"><strong>At 2R</strong> — sell half, move the stop on the rest to breakeven. Now the trade cannot lose.</li></ul><ul id="3aa8b41e-eb64-9000-8000-000000000099" class="bulleted-list" dir="auto"><li style="list-style-type:disc"><strong>Trailing a winner</strong> — keep the stop just under the 8 EMA and raise it as the 8 EMA rises. Never lower it.</li></ul><ul id="3aa8b41e-eb64-9000-8000-00000000009a" class="bulleted-list" dir="auto"><li style="list-style-type:disc"><strong>Earnings inside 2 days</strong> — decide now: close it, or halve it and accept the gap risk on the rest. Do not arrive at the report undecided.</li></ul></div></details><hr id="3aa8b41e-eb64-9000-8000-00000000009b" dir="auto"/><aside class="block-color-purple_background callout" data-notion-callout="" data-notion-callout-icon="📚" data-notion-callout-background="purple_background" style="white-space:pre-wrap;display:flex" id="3aa8b41e-eb64-9000-8000-000000000336" dir="ltr"><div style="font-size:1.5em"><span class="icon" data-emoji="📚"></span></div><div style="width:100%"><p id="3aa8b41e-eb64-9000-8000-000000000337" class="" dir="auto"><strong>Part 2 — Reference.</strong> Open a section below only when a step in Part 1 needs explaining, or when you are studying the strategy — not every trading day.</p></div></aside><hr id="3aa8b41e-eb64-9000-8000-000000000338" dir="auto"/><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.25em;line-height:1.3;margin:0"><h3 id="3aa8b41e-eb64-9000-8000-00000000009c" style="display:inline-block"><mark class="highlight-blue" data-notion-highlight="blue">Which chart to open first — the skim order</mark></h3></summary><div class="indented"><p id="3aa8b41e-eb64-9000-8000-00000000009d" class="" dir="auto">You have 20–80 names from Scan A and maybe 3 of them deserve real work. The first pass exists to <strong>reject fast</strong>. Spending five minutes on every name is how this routine gets abandoned in week two.</p><table id="3aa8b41e-eb64-9000-8000-00000000009e" class="simple-table" dir="ltr"><thead class="simple-table-header"><tr id="3aa8b41e-eb64-9000-8000-00000000009f" dir="ltr"><th id="sk01" class="simple-table-header-color simple-table-header">Pass</th><th id="sk02" class="simple-table-header-color simple-table-header">Chart</th><th id="sk03" class="simple-table-header-color simple-table-header">Bars on screen</th><th id="sk04" class="simple-table-header-color simple-table-header">Time each</th><th id="sk05" class="simple-table-header-color simple-table-header">The one question</th></tr></thead><tbody><tr id="3aa8b41e-eb64-9000-8000-0000000000a0" dir="ltr"><td id="sk01" class="">1</td><td id="sk02" class="">Weekly</td><td id="sk03" class="">2–3 years</td><td id="sk04" class="">5–10 seconds</td><td id="sk05" class="">Real uptrend, and is there clear air above?</td></tr><tr id="3aa8b41e-eb64-9000-8000-0000000000a1" dir="ltr"><td id="sk01" class="">2</td><td id="sk02" class="">Daily</td><td id="sk03" class="">6–9 months</td><td id="sk04" class="">3–5 minutes</td><td id="sk05" class="">Is there a base, and where are entry and stop?</td></tr><tr id="3aa8b41e-eb64-9000-8000-0000000000a2" dir="ltr"><td id="sk01" class="">3</td><td id="sk02" class="">15-minute or hourly</td><td id="sk03" class="">5–10 days</td><td id="sk04" class="">1 minute</td><td id="sk05" class="">Is it triggering today?</td></tr><tr id="3aa8b41e-eb64-9000-8000-0000000000a3" dir="ltr"><td id="sk01" class="">—</td><td id="sk02" class="">Monthly</td><td id="sk03" class="">5–10 years</td><td id="sk04" class="">Once a quarter</td><td id="sk05" class="">Is this a long-term winner at all?</td></tr></tbody></table><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.125em;line-height:1.3;margin:0"><h4 id="3aa8b41e-eb64-9000-8000-0000000000a4" style="display:inline-block">Pass 1 — Weekly, 2 to 3 years, 5 to 10 seconds</h4></summary><div class="indented"><p id="3aa8b41e-eb64-9000-8000-0000000000a5" class="" dir="auto">Start here, not on the monthly. Two reasons.</p><p id="3aa8b41e-eb64-9000-8000-0000000000a6" class="" dir="auto">You hold for three to six weeks. On a monthly chart that entire trade is one candle, still forming — it has almost no power to reject a name, so it is a slow first filter. The weekly, by contrast, puts a full year on one screen and answers the stage question immediately.</p><p id="3aa8b41e-eb64-9000-8000-0000000000a7" class="" dir="auto">More importantly, the weekly is the only place you can see <strong>overhead supply</strong>: old price levels where buyers got trapped and are waiting to sell at breakeven. That is the most common reason a technically perfect breakout fails, and it is invisible on a 6-month daily chart.</p><pre id="3aa8b41e-eb64-9000-8000-0000000000a8" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">CLEAR AIR - what you want
+
+                        /\   &lt;- new high. Nobody above you is
+                      /         underwater and waiting to sell.
+              /\    /
+            /    \/
+    /\    /
+  /    \/
+
+
+OVERHEAD SUPPLY - avoid
+
+$120  ****    &lt;- heavy trading here, then it crashed.
+          \      Everyone who bought is waiting to get
+            \    out at breakeven.
+              \      /\
+                \  /    &lt;- you are here at $110. Your breakout
+                 \/        has to chew through all of that
+                           supply before it can go anywhere.</code></pre><p id="3aa8b41e-eb64-9000-8000-0000000000a9" class="" dir="auto">Four things, five seconds:</p><ul id="3aa8b41e-eb64-9000-8000-0000000000aa" class="bulleted-list" dir="auto"><li style="list-style-type:disc">Is it up and to the right?</li></ul><ul id="3aa8b41e-eb64-9000-8000-0000000000ab" class="bulleted-list" dir="auto"><li style="list-style-type:disc">Is price above a <em>rising</em> 30-week (150-day) or 50-week MA? Flat or falling is not good enough.</li></ul><ul id="3aa8b41e-eb64-9000-8000-0000000000ac" class="bulleted-list" dir="auto"><li style="list-style-type:disc">Is it near the top of its one-year range?</li></ul><ul id="3aa8b41e-eb64-9000-8000-0000000000ad" class="bulleted-list" dir="auto"><li style="list-style-type:disc">Is there clear air above, or a wall of old highs sitting 8% overhead?</li></ul><p id="3aa8b41e-eb64-9000-8000-0000000000ae" class="" dir="auto">Any "no" → close the tab, next name. Do not go looking for reasons to keep it.</p></div></details><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.125em;line-height:1.3;margin:0"><h4 id="3aa8b41e-eb64-9000-8000-0000000000af" style="display:inline-block">Pass 2 — Daily, 6 to 9 months, 3 to 5 minutes</h4></summary><div class="indented"><p id="3aa8b41e-eb64-9000-8000-0000000000b0" class="" dir="auto">This is where 80% of the work belongs, on the handful of names that survived the weekly. Indicators: 8 EMA, 21 EMA, 50 SMA, 200 SMA, volume.</p><ol type="1" id="3aa8b41e-eb64-9000-8000-0000000000b1" class="numbered-list" start="1" dir="auto"><li>Score the trend template below. Under 6 of 8 → drop it.</li></ol><ol type="1" id="3aa8b41e-eb64-9000-8000-0000000000b2" class="numbered-list" start="2" dir="auto"><li>Name the pattern and measure it against the lookback windows.</li></ol><ol type="1" id="3aa8b41e-eb64-9000-8000-0000000000b3" class="numbered-list" start="3" dir="auto"><li>Draw the resistance line. Write the exact price down.</li></ol><ol type="1" id="3aa8b41e-eb64-9000-8000-0000000000b4" class="numbered-list" start="4" dir="auto"><li>Find the stop, using the priority order in the stop-loss section.</li></ol><ol type="1" id="3aa8b41e-eb64-9000-8000-0000000000b5" class="numbered-list" start="5" dir="auto"><li>Do the risk/reward arithmetic. Under 2:1 → drop it, however good the chart looks.</li></ol><p id="3aa8b41e-eb64-9000-8000-0000000000b6" class="" dir="auto">Step 5 is the one people skip. A beautiful setup with the stop 12% away and the next resistance 6% up is a bad trade, and no amount of pattern quality fixes that.</p></div></details><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.125em;line-height:1.3;margin:0"><h4 id="3aa8b41e-eb64-9000-8000-0000000000b7" style="display:inline-block">Pass 3 — 15-minute or hourly, 5 to 10 days, 1 minute</h4></summary><div class="indented"><p id="3aa8b41e-eb64-9000-8000-0000000000b8" class="" dir="auto">Only for the 2–5 finalists, and only on a day one of them is actually near its line. This is the trigger check from the 10:00 AM–3:45 PM section: higher highs, above yesterday's close, above VWAP, volume running hot for the time of day.</p><p id="3aa8b41e-eb64-9000-8000-0000000000b9" class="" dir="auto">Nothing on this timeframe can turn a bad daily setup into a good trade. It only tells you <em>when</em>, never <em>whether</em>.</p></div></details><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.125em;line-height:1.3;margin:0"><h4 id="3aa8b41e-eb64-9000-8000-0000000000ba" style="display:inline-block">Monthly — once a quarter, not every day</h4></summary><div class="indented"><p id="3aa8b41e-eb64-9000-8000-0000000000bb" class="" dir="auto">The monthly chart answers "is this a long-term winner?", which is worth knowing but does not change from Tuesday to Wednesday. Reviewing it nightly costs you 30 seconds a name for information you already had. Do it once a quarter over your recurring names instead.</p><p id="3aa8b41e-eb64-9000-8000-0000000000bc" class="" dir="auto">Chart: monthly, 5–10 years, with a 20-month MA.</p><pre id="3aa8b41e-eb64-9000-8000-0000000000bd" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">GOOD                            AVOID
+Price                           Price
+            /                     \
+          /                         \
+        /                             \
+      /                                 \
+---------------- 20 month MA      ---------------- 20 month MA
+
+2024: $100                      or dead sideways:
+2025: $150                        100 ----
+2026: $220                        100 ----
+higher over years                 100 ----</code></pre><p id="3aa8b41e-eb64-9000-8000-0000000000be" class="" dir="auto">A name that fails this gets removed from your universe entirely, so it stops showing up in nightly scans.</p></div></details></div></details><hr id="3aa8b41e-eb64-9000-8000-0000000000bf" dir="auto"/><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.25em;line-height:1.3;margin:0"><h3 id="3aa8b41e-eb64-9000-8000-0000000000c0" style="display:inline-block"><mark class="highlight-blue" data-notion-highlight="blue">Setup rules — the single source of truth</mark></h3></summary><div class="indented"><p id="3aa8b41e-eb64-9000-8000-0000000000c1" class="" dir="auto">Every rule in this routine is defined here, once. The time-of-day sections above tell you <em>when</em> to apply them; this section is what they mean.</p><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.125em;line-height:1.3;margin:0"><h4 id="3aa8b41e-eb64-9000-8000-0000000000c2" style="display:inline-block">The trend template — score it out of 8</h4></summary><div class="indented"><p id="3aa8b41e-eb64-9000-8000-0000000000c3" class="" dir="auto">Daily chart. <strong>6 or better makes the watchlist. Under 6 is dropped</strong>, no exceptions and no negotiating with the chart.</p><table id="3aa8b41e-eb64-9000-8000-0000000000c4" class="simple-table" dir="ltr"><thead class="simple-table-header"><tr id="3aa8b41e-eb64-9000-8000-0000000000c5" dir="ltr"><th id="tt01" class="simple-table-header-color simple-table-header">Question</th><th id="tt02" class="simple-table-header-color simple-table-header">Yes</th><th id="tt03" class="simple-table-header-color simple-table-header">No</th></tr></thead><tbody><tr id="3aa8b41e-eb64-9000-8000-0000000000c6" dir="ltr"><td id="tt01" class="">1. Price above the 200 SMA?</td><td id="tt02" class="">☐</td><td id="tt03" class="">☐</td></tr><tr id="3aa8b41e-eb64-9000-8000-0000000000c7" dir="ltr"><td id="tt01" class="">2. 50 SMA above the 200 SMA?</td><td id="tt02" class="">☐</td><td id="tt03" class="">☐</td></tr><tr id="3aa8b41e-eb64-9000-8000-0000000000c8" dir="ltr"><td id="tt01" class="">3. 8 EMA above the 21 EMA?</td><td id="tt02" class="">☐</td><td id="tt03" class="">☐</td></tr><tr id="3aa8b41e-eb64-9000-8000-0000000000c9" dir="ltr"><td id="tt01" class="">4. Price above the 8 EMA?</td><td id="tt02" class="">☐</td><td id="tt03" class="">☐</td></tr><tr id="3aa8b41e-eb64-9000-8000-0000000000ca" dir="ltr"><td id="tt01" class="">5. Making higher highs?</td><td id="tt02" class="">☐</td><td id="tt03" class="">☐</td></tr><tr id="3aa8b41e-eb64-9000-8000-0000000000cb" dir="ltr"><td id="tt01" class="">6. Making higher lows?</td><td id="tt02" class="">☐</td><td id="tt03" class="">☐</td></tr><tr id="3aa8b41e-eb64-9000-8000-0000000000cc" dir="ltr"><td id="tt01" class="">7. Volume drying up during the base?</td><td id="tt02" class="">☐</td><td id="tt03" class="">☐</td></tr><tr id="3aa8b41e-eb64-9000-8000-0000000000cd" dir="ltr"><td id="tt01" class="">8. Within ~10% of the 52-week high?</td><td id="tt02" class="">☐</td><td id="tt03" class="">☐</td></tr></tbody></table><p id="3aa8b41e-eb64-9000-8000-0000000000ce" class="" dir="auto">What each one is actually telling you:</p><ol type="1" id="3aa8b41e-eb64-9000-8000-0000000000cf" class="numbered-list" start="1" dir="auto"><li><strong>Price above the 200 SMA</strong> — the long-term trend is healthy. Below it you are trying to catch a falling stock, which is a different game with worse odds.</li></ol><ol type="1" id="3aa8b41e-eb64-9000-8000-0000000000d0" class="numbered-list" start="2" dir="auto"><li><strong>50 SMA above the 200 SMA</strong> — the medium-term trend is stronger than the long-term one. The stock is speeding up rather than decaying.</li></ol><ol type="1" id="3aa8b41e-eb64-9000-8000-0000000000d1" class="numbered-list" start="3" dir="auto"><li><strong>8 EMA above the 21 EMA</strong> — short-term momentum is positive right now.</li></ol><ol type="1" id="3aa8b41e-eb64-9000-8000-0000000000d2" class="numbered-list" start="4" dir="auto"><li><strong>Price above the 8 EMA</strong> — if it keeps closing below the 8 EMA, momentum is draining out of it.</li></ol><ol type="1" id="3aa8b41e-eb64-9000-8000-0000000000d3" class="numbered-list" start="5" dir="auto"><li><strong>Higher highs</strong> — each new peak clears the previous peak.</li></ol><ol type="1" id="3aa8b41e-eb64-9000-8000-0000000000d4" class="numbered-list" start="6" dir="auto"><li><strong>Higher lows</strong> — each pullback stops above the previous pullback. Buyers are getting more eager, not less.</li></ol><ol type="1" id="3aa8b41e-eb64-9000-8000-0000000000d5" class="numbered-list" start="7" dir="auto"><li><strong>Volume drying up in the base</strong> — see below. Sellers are finished.</li></ol><ol type="1" id="3aa8b41e-eb64-9000-8000-0000000000d6" class="numbered-list" start="8" dir="auto"><li><strong>Near the 52-week high</strong> — within about 5–10% means nobody above you is underwater and waiting to sell.</li></ol><p id="3aa8b41e-eb64-9000-8000-0000000000d7" class="" dir="auto">Note that 1 and 2 measure related things, so a stock in a long uptrend gets both almost for free. A score of 6 that is missing 5, 6 and 7 is much weaker than a 6 missing 1 and 8 — read the misses, do not just add up the checkmarks.</p></div></details><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.125em;line-height:1.3;margin:0"><h4 id="3aa8b41e-eb64-9000-8000-0000000000d8" style="display:inline-block">What a good base looks like</h4></summary><div class="indented"><p id="3aa8b41e-eb64-9000-8000-0000000000d9" class="" dir="auto">A base is the resting area before the breakout: the stock stops going up and moves sideways while it changes hands from short-term traders to longer-term holders.</p><pre id="3aa8b41e-eb64-9000-8000-0000000000da" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">GOOD - a base                    BAD - not a base
+110                              100
+108                              130
+106     ______                    90
+108    |      |                  140
+109    |      |
+107 ___|      |___               too unstable, and the stop
+110                              would have to be 25% away
+
+tight range, small candles</code></pre><ul id="3aa8b41e-eb64-9000-8000-0000000000db" class="bulleted-list" dir="auto"><li style="list-style-type:disc"><strong>Length</strong> — 2 to 8 weeks. Under 2 weeks it has not rested; over about 12 weeks the momentum is gone.</li></ul><ul id="3aa8b41e-eb64-9000-8000-0000000000dc" class="bulleted-list" dir="auto"><li style="list-style-type:disc"><strong>Depth</strong> — high to low under 15%. Under 10% is excellent. A "base" that drops 30% is a downtrend with a nice name.</li></ul><ul id="3aa8b41e-eb64-9000-8000-0000000000dd" class="bulleted-list" dir="auto"><li style="list-style-type:disc"><strong>Tightening</strong> — the best bases get quieter toward the right edge, each swing smaller than the last.</li></ul><ul id="3aa8b41e-eb64-9000-8000-0000000000de" class="bulleted-list" dir="auto"><li style="list-style-type:disc"><strong>A prior advance</strong> — there must have been a real move up <em>into</em> the base, 25% or more over the previous 3–12 months. Without it you are not buying a pause in an uptrend, you are buying a bottom, which is a lower-probability trade with a different playbook.</li></ul><ul id="3aa8b41e-eb64-9000-8000-0000000000df" class="bulleted-list" dir="auto"><li style="list-style-type:disc"><strong>Base count</strong> — the first and second base after a stock emerges from a downtrend work best. By the fourth or fifth base of a long run, everyone can see it and failures increase.</li></ul></div></details><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.125em;line-height:1.3;margin:0"><h4 id="3aa8b41e-eb64-9000-8000-0000000000e0" style="display:inline-block">Volume dry-up, and the breakout expansion</h4></summary><div class="indented"><p id="3aa8b41e-eb64-9000-8000-0000000000e1" class="" dir="auto">Inside the base you want volume to <em>shrink</em>. Falling volume while price holds means the sellers have finished and there is nobody left to push it down. Then on the breakout day you want it to explode, because that is institutions stepping in.</p><pre id="3aa8b41e-eb64-9000-8000-0000000000e2" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Price   110 ________ 108 ________ 106 ________      then  /
+                                                        /
+Volume  ||||||||                                        |||||||||||||||||
+        |||||                                           |||||||||||||||||
+        ||||
+        ||          &lt;- drying up: nobody selling         &lt;- 1.5-2x average
+
+BAD - heavy volume all through the base:
+        ||||||||||||||||||
+        ||||||||||||||||||   someone big is distributing into the range
+        ||||||||||||||||||   avoid</code></pre><p id="3aa8b41e-eb64-9000-8000-0000000000e3" class="" dir="auto">Compare against the 50-day average volume. A breakout on below-average volume is the single most reliable way to lose money with this strategy.</p></div></details><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.125em;line-height:1.3;margin:0"><h4 id="3aa8b41e-eb64-9000-8000-0000000000e4" style="display:inline-block">Overhead supply</h4></summary><div class="indented"><p id="3aa8b41e-eb64-9000-8000-0000000000e5" class="" dir="auto">Every price level where the stock traded heavily and then fell is a queue of buyers who are underwater. When price returns to their entry, a lot of them sell just to get out flat. That selling is what kills breakouts.</p><p id="3aa8b41e-eb64-9000-8000-0000000000e6" class="" dir="auto">How to check: weekly chart, 12 to 24 months back. Look for old highs and heavy-volume shelves above your entry. If there is a big one within 10% of your target, either the target moves down or the trade goes in the bin.</p><p id="3aa8b41e-eb64-9000-8000-0000000000e7" class="" dir="auto">This is exactly why "near the 52-week high" is in the scan. At a new high there is <em>nobody</em> above you.</p></div></details></div></details><hr id="3aa8b41e-eb64-9000-8000-0000000000e8" dir="auto"/><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.25em;line-height:1.3;margin:0"><h3 id="3aa8b41e-eb64-9000-8000-0000000000e9" style="display:inline-block"><mark class="highlight-blue" data-notion-highlight="blue">Patterns — what you are looking for, and how far back to look</mark></h3></summary><div class="indented"><p id="3aa8b41e-eb64-9000-8000-0000000000ea" class="" dir="auto">All four patterns are found on the <strong>daily chart</strong>. That is the timeframe where a 2–8 week base is 10 to 40 candles: enough resolution to place a resistance line to the cent and to see exactly where the last swing low sits.</p><p id="3aa8b41e-eb64-9000-8000-0000000000eb" class="" dir="auto">Not the weekly — the same six-week base is six candles there, which is context, not a tradable level. Not the 15-minute — the pattern dissolves into noise.</p><p id="3aa8b41e-eb64-9000-8000-0000000000ec" class="" dir="auto"><strong>Flat base and bull flag</strong> are the two to learn first. They are the easiest to identify and they fit the 8 EMA plus 200 SMA breakout approach best.</p><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.125em;line-height:1.3;margin:0"><h4 id="3aa8b41e-eb64-9000-8000-0000000000ed" style="display:inline-block">Lookback windows — how far back for what</h4></summary><div class="indented"><table id="3aa8b41e-eb64-9000-8000-0000000000ee" class="simple-table" dir="ltr"><thead class="simple-table-header"><tr id="3aa8b41e-eb64-9000-8000-0000000000ef" dir="ltr"><th id="lb01" class="simple-table-header-color simple-table-header">What you are measuring</th><th id="lb02" class="simple-table-header-color simple-table-header">Chart</th><th id="lb03" class="simple-table-header-color simple-table-header">How far back</th></tr></thead><tbody><tr id="3aa8b41e-eb64-9000-8000-0000000000f0" dir="ltr"><td id="lb01" class="">The pattern itself</td><td id="lb02" class="">Daily</td><td id="lb03" class="">2–8 weeks (10–40 bars)</td></tr><tr id="3aa8b41e-eb64-9000-8000-0000000000f1" dir="ltr"><td id="lb01" class="">Bull flag</td><td id="lb02" class="">Daily</td><td id="lb03" class="">5–20 bars, pullback under 10–15%</td></tr><tr id="3aa8b41e-eb64-9000-8000-0000000000f2" dir="ltr"><td id="lb01" class="">Flat base</td><td id="lb02" class="">Daily</td><td id="lb03" class="">5–8 weeks, whole range under 15%</td></tr><tr id="3aa8b41e-eb64-9000-8000-0000000000f3" dir="ltr"><td id="lb01" class="">Ascending triangle</td><td id="lb02" class="">Daily</td><td id="lb03" class="">4–10 weeks</td></tr><tr id="3aa8b41e-eb64-9000-8000-0000000000f4" dir="ltr"><td id="lb01" class="">Cup and handle</td><td id="lb02" class="">Daily, 6–12 months on screen</td><td id="lb03" class="">Cup 7 weeks to 6+ months, handle 1–3 weeks</td></tr><tr id="3aa8b41e-eb64-9000-8000-0000000000f5" dir="ltr"><td id="lb01" class="">The prior advance into the base</td><td id="lb02" class="">Daily</td><td id="lb03" class="">3–12 months</td></tr><tr id="3aa8b41e-eb64-9000-8000-0000000000f6" dir="ltr"><td id="lb01" class="">Overhead supply</td><td id="lb02" class="">Weekly</td><td id="lb03" class="">12–24 months</td></tr><tr id="3aa8b41e-eb64-9000-8000-0000000000f7" dir="ltr"><td id="lb01" class="">Support for your stop</td><td id="lb02" class="">Daily</td><td id="lb03" class="">1–3 months</td></tr><tr id="3aa8b41e-eb64-9000-8000-0000000000f8" dir="ltr"><td id="lb01" class="">Volume baseline</td><td id="lb02" class="">Daily</td><td id="lb03" class="">50-day average</td></tr></tbody></table><p id="3aa8b41e-eb64-9000-8000-0000000000f9" class="" dir="auto">Practical setup: default your daily chart to about 6 months, with one keystroke to a weekly showing 3 years. Those two views cover every row above except the cup, which needs you to zoom the daily out to a year.</p><p id="3aa8b41e-eb64-9000-8000-0000000000fa" class="" dir="auto">The row people skip is <strong>the prior advance</strong>. Sideways price with no run into it is a bottom, not a base.</p></div></details><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.125em;line-height:1.3;margin:0"><h4 id="3aa8b41e-eb64-9000-8000-0000000000fb" style="display:inline-block">How to sort your scan output into patterns</h4></summary><div class="indented"><p id="3aa8b41e-eb64-9000-8000-0000000000fc" class="" dir="auto">Open each weekly-pass survivor on a 6-month daily and ask these in order. The first "yes" names the pattern; you do not need to keep going.</p><ol type="1" id="3aa8b41e-eb64-9000-8000-0000000000fd" class="numbered-list" start="1" dir="auto"><li>Did it run hard in the last 1–4 weeks and is now drifting sideways or slightly down? → <strong>bull flag</strong></li></ol><ol type="1" id="3aa8b41e-eb64-9000-8000-0000000000fe" class="numbered-list" start="2" dir="auto"><li>Has it been sideways in a tight range for 5–8 weeks, after an earlier advance? → <strong>flat base</strong></li></ol><ol type="1" id="3aa8b41e-eb64-9000-8000-0000000000ff" class="numbered-list" start="3" dir="auto"><li>Is the top flat while the lows keep rising? → <strong>ascending triangle</strong></li></ol><ol type="1" id="3aa8b41e-eb64-9000-8000-000000000100" class="numbered-list" start="4" dir="auto"><li>Is there a U-shape over the last 2–6 months with a small pullback at the right edge? → <strong>cup and handle</strong></li></ol><ol type="1" id="3aa8b41e-eb64-9000-8000-000000000101" class="numbered-list" start="5" dir="auto"><li>None of the above → there is no setup here today. Close it. It may well be back next week.</li></ol><p id="3aa8b41e-eb64-9000-8000-000000000102" class="" dir="auto">Rough expectation, starting from 40 scan results:</p><pre id="3aa8b41e-eb64-9000-8000-000000000103" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">40  scan results
+25  survive the weekly skim
+10  are resting in something base-like
+ 5  are clean enough to name the pattern
+ 2  survive the risk/reward arithmetic   &lt;- these get a written plan</code></pre><p id="3aa8b41e-eb64-9000-8000-000000000104" class="" dir="auto">Two a night is normal and healthy. Some nights it is zero. That is the routine working, not failing.</p><p id="3aa8b41e-eb64-9000-8000-000000000105" class="" dir="auto">Kill it regardless of how good the shape is if any of these are true:</p><ul id="3aa8b41e-eb64-9000-8000-000000000106" class="bulleted-list" dir="auto"><li style="list-style-type:disc">Earnings within 7 trading days.</li></ul><ul id="3aa8b41e-eb64-9000-8000-000000000107" class="bulleted-list" dir="auto"><li style="list-style-type:disc">The resistance line is more than about 8% above the current price — too far away to be a trade you take tomorrow. Put it on a "watch later" list instead.</li></ul><ul id="3aa8b41e-eb64-9000-8000-000000000108" class="bulleted-list" dir="auto"><li style="list-style-type:disc">The only sensible stop is more than 8% below the entry and you cannot size down enough to make the dollar risk work.</li></ul><ul id="3aa8b41e-eb64-9000-8000-000000000109" class="bulleted-list" dir="auto"><li style="list-style-type:disc">Heavy overhead supply between the entry and the 2R target.</li></ul></div></details><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.125em;line-height:1.3;margin:0"><h4 id="3aa8b41e-eb64-9000-8000-00000000010a" style="display:inline-block">Bull Flag ⭐⭐⭐⭐</h4></summary><div class="indented"><p id="3aa8b41e-eb64-9000-8000-00000000010b" class="" dir="auto">A stock runs up hard — the flag pole — then rests sideways or drifts slightly down.</p><pre id="3aa8b41e-eb64-9000-8000-00000000010c" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Price
+  |
+  |          *
+  |         *
+  |        *          ______
+  |       *          /      \
+  |      *          /        \____
+  |     *      ____/               ^
+  |    *                        breakout
+  |___*
+       flag pole            the flag</code></pre><p id="3aa8b41e-eb64-9000-8000-00000000010d" class="" dir="auto">How to find it on the daily:</p><ol type="1" id="3aa8b41e-eb64-9000-8000-00000000010e" class="numbered-list" start="1" dir="auto"><li><strong>The pole</strong> — a strong move, say $100 to $120, over a few days to a few weeks.</li></ol><ol type="1" id="3aa8b41e-eb64-9000-8000-00000000010f" class="numbered-list" start="2" dir="auto"><li><strong>The flag</strong> — 5 to 20 trading days of sideways drift, pulling back less than 10–15% off the high.</li></ol><ol type="1" id="3aa8b41e-eb64-9000-8000-000000000110" class="numbered-list" start="3" dir="auto"><li><strong>The line</strong> — draw resistance across the top of the flag.</li></ol><p id="3aa8b41e-eb64-9000-8000-000000000111" class="" dir="auto">Stop goes below the flag low. On a $120 flag with the low at $115, entry $120.50 and stop $114.50 is $6 of risk per share.</p></div></details><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.125em;line-height:1.3;margin:0"><h4 id="3aa8b41e-eb64-9000-8000-000000000112" style="display:inline-block">Flat Base ⭐⭐⭐⭐⭐</h4></summary><div class="indented"><p id="3aa8b41e-eb64-9000-8000-000000000113" class="" dir="auto">The best pattern to start with. The stock simply goes quiet in a narrow range.</p><pre id="3aa8b41e-eb64-9000-8000-000000000114" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">previous move: $80 -&gt; $110, then:
+
+$110 ----------------  &lt;- resistance
+       110  109  110
+       108  107  108
+       106  105  107
+$105 ----------------  &lt;- base low
+
+5-8 weeks. This range is 4.8% deep - well under the 15% limit.</code></pre><p id="3aa8b41e-eb64-9000-8000-000000000115" class="" dir="auto">Draw the line across the highest closes in the range, not the single highest wick — one spike that nobody followed is not where the sellers are.</p><p id="3aa8b41e-eb64-9000-8000-000000000116" class="" dir="auto">Stop goes below the base low. The base low is the cleanest stop level in this whole strategy, which is a large part of why this pattern rates highest.</p></div></details><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.125em;line-height:1.3;margin:0"><h4 id="3aa8b41e-eb64-9000-8000-000000000117" style="display:inline-block">Ascending Triangle ⭐⭐⭐</h4></summary><div class="indented"><p id="3aa8b41e-eb64-9000-8000-000000000118" class="" dir="auto">A flat top with rising lows. Buyers are getting more aggressive while the sellers hold one price.</p><pre id="3aa8b41e-eb64-9000-8000-000000000119" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">$120 ----------------  &lt;- flat resistance, sellers here
+                  /
+$115            /
+              /
+$110        /
+          /
+$105    /               &lt;- lows keep rising</code></pre><p id="3aa8b41e-eb64-9000-8000-00000000011a" class="" dir="auto">Sellers keep offering at $120. Buyers step up at $105, then $110, then $115. Eventually the sellers run out and the price goes through.</p><p id="3aa8b41e-eb64-9000-8000-00000000011b" class="" dir="auto">Stop goes below the most recent higher low — not the bottom of the whole triangle, which is far too far away by the time the pattern matures.</p></div></details><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.125em;line-height:1.3;margin:0"><h4 id="3aa8b41e-eb64-9000-8000-00000000011c" style="display:inline-block">Cup and Handle ⭐⭐⭐</h4></summary><div class="indented"><p id="3aa8b41e-eb64-9000-8000-00000000011d" class="" dir="auto">The longest of the four. Zoom the daily out to 6–12 months or you will not see it.</p><pre id="3aa8b41e-eb64-9000-8000-00000000011e" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">$100 ----------------  &lt;- resistance (the old high)
+
+        ______
+      /        \                  |____
+    /            \                     \
+   /              \__                   \____  &lt;- handle
+  /                  \
+                      \__
+                      the cup                  ^ breakout</code></pre><ul id="3aa8b41e-eb64-9000-8000-00000000011f" class="bulleted-list" dir="auto"><li style="list-style-type:disc"><strong>Cup</strong> — falls from $100 to $80, recovers to $100. A rounded U, not a sharp V. 7 weeks to 6 months or more.</li></ul><ul id="3aa8b41e-eb64-9000-8000-000000000120" class="bulleted-list" dir="auto"><li style="list-style-type:disc"><strong>Handle</strong> — a small pullback near the old high, 1 to 3 weeks, ideally in the upper half of the cup.</li></ul><p id="3aa8b41e-eb64-9000-8000-000000000121" class="" dir="auto">Stop goes below the handle low, never below the cup. Note that the old high at the top of the cup <em>is</em> overhead supply by definition, which is why this pattern rates below the flat base despite its reputation.</p></div></details></div></details><hr id="3aa8b41e-eb64-9000-8000-000000000122" dir="auto"/><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.25em;line-height:1.3;margin:0"><h3 id="3aa8b41e-eb64-9000-8000-000000000123" style="display:inline-block"><mark class="highlight-yellow" data-notion-highlight="yellow">Entry, stop, size and target — the trade plan</mark></h3></summary><div class="indented"><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.125em;line-height:1.3;margin:0"><h4 id="3aa8b41e-eb64-9000-8000-000000000124" style="display:inline-block">Entry formula — one rule for all four patterns</h4></summary><div class="indented"><p id="3aa8b41e-eb64-9000-8000-000000000125" class="" dir="auto"><strong>Never chase candles.</strong> Wait for price to break the resistance line you drew last night.</p><pre id="3aa8b41e-eb64-9000-8000-000000000126" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Entry = resistance + 0.5% to 1%
+
+Resistance $24.80   ->  buy $24.90 - $25.00
+                        NOT $26.50 after it already ran</code></pre><p id="3aa8b41e-eb64-9000-8000-000000000127" class="" dir="auto">The small premium above the line is the price of confirmation. Buying exactly at the line gets you filled on wicks that poke through and immediately fail; paying half a percent more means the level actually gave way.</p><p id="3aa8b41e-eb64-9000-8000-000000000128" class="" dir="auto">The breakout must come with expanding volume — 1.5 to 2 times the 50-day average. Without that, skip it, whatever the price is doing.</p><p id="3aa8b41e-eb64-9000-8000-000000000129" class="" dir="auto">This formula does not change between bull flags, flat bases, triangles or cups. Only the location of the line changes.</p></div></details><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.125em;line-height:1.3;margin:0"><h4 id="3aa8b41e-eb64-9000-8000-00000000012a" style="display:inline-block">Stop loss — always below structure</h4></summary><div class="indented"><p id="3aa8b41e-eb64-9000-8000-00000000012b" class="" dir="auto">Structure decides the level. A percentage never does. Work down this priority list and take the first one that exists:</p><ol type="1" id="3aa8b41e-eb64-9000-8000-00000000012c" class="numbered-list" start="1" dir="auto"><li><strong>Below the consolidation low</strong> — best. Entry $100, base low $94, stop $93.50. If price is back under the base, every buyer in it is wrong, including you.</li></ol><ol type="1" id="3aa8b41e-eb64-9000-8000-00000000012d" class="numbered-list" start="2" dir="auto"><li><strong>Below a support level</strong> — entry $100, support $95, stop $94.50.</li></ol><ol type="1" id="3aa8b41e-eb64-9000-8000-00000000012e" class="numbered-list" start="3" dir="auto"><li><strong>Below the breakout candle low</strong> — entry $53 on a candle that ran $50 to $55, stop $49.50. Tightest, and the most likely to be hit by noise.</li></ol><h2 id="3aa8b41e-eb64-9000-8000-00000000012f" class="" dir="auto">What support actually is</h2><p id="3aa8b41e-eb64-9000-8000-000000000130" class="" dir="auto">A price area where buyers have repeatedly stepped in. Find it on the daily chart, looking back 1 to 3 months, at places where price stopped falling and bounced more than once.</p><pre id="3aa8b41e-eb64-9000-8000-000000000131" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">$120  *
+       *
+$110 ----------------  resistance
+       \      /\
+        \    /  \
+$100 ------*------*---  support   &lt;- buyers defend here twice
+</code></pre><h2 id="3aa8b41e-eb64-9000-8000-000000000132" class="" dir="auto">The 8% rule — how far is too far</h2><p id="3aa8b41e-eb64-9000-8000-000000000133" class="" dir="auto">Structure gives you the level; then you measure the distance and decide whether the trade is takeable at all.</p><pre id="3aa8b41e-eb64-9000-8000-000000000134" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">stop is  under  8% away  ->  normal trade, size normally
+stop is  8-12%  away     ->  only if you can cut share count enough
+                             that the dollar risk still fits.
+                             With a small account, usually you cannot.
+                             Then: skip it.
+stop is  over  12% away  ->  skip. The base is too loose to trade.</code></pre><p id="3aa8b41e-eb64-9000-8000-000000000135" class="" dir="auto">This replaces the old "5–8% below entry" guideline, which conflicted with "below pattern support" every time the two disagreed. They no longer disagree: support sets the price, the percentage only decides whether you take the trade.</p><h2 id="3aa8b41e-eb64-9000-8000-000000000136" class="" dir="auto">The test</h2><p id="3aa8b41e-eb64-9000-8000-000000000137" class="" dir="auto">Ask of any candidate stop: <em>"if price reaches this level, is my breakout idea wrong?"</em> If yes, it is a good stop. If the idea would still be intact there, the stop is too tight and noise will take you out.</p><p id="3aa8b41e-eb64-9000-8000-000000000138" class="" dir="auto">And then: <strong>never move it further away.</strong> Widening a stop converts a planned small loss into an unplanned large one, and it is the single most expensive habit in trading.</p></div></details><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.125em;line-height:1.3;margin:0"><h4 id="3aa8b41e-eb64-9000-8000-000000000139" style="display:inline-block">Position size</h4></summary><div class="indented"><pre id="3aa8b41e-eb64-9000-8000-00000000013a" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Shares = dollar risk ÷ (entry − stop)</code></pre><p id="3aa8b41e-eb64-9000-8000-00000000013b" class="" dir="auto">With a $100 account risking 3%, the dollar risk is $3:</p><table id="3aa8b41e-eb64-9000-8000-00000000013c" class="simple-table" dir="ltr"><thead class="simple-table-header"><tr id="3aa8b41e-eb64-9000-8000-00000000013d" dir="ltr"><th id="ps01" class="simple-table-header-color simple-table-header">Entry</th><th id="ps02" class="simple-table-header-color simple-table-header">Stop</th><th id="ps03" class="simple-table-header-color simple-table-header">Risk per share</th><th id="ps04" class="simple-table-header-color simple-table-header">Shares</th></tr></thead><tbody><tr id="3aa8b41e-eb64-9000-8000-00000000013e" dir="ltr"><td id="ps01" class="">$20.00</td><td id="ps02" class="">$19.00</td><td id="ps03" class="">$1.00</td><td id="ps04" class="">3</td></tr><tr id="3aa8b41e-eb64-9000-8000-00000000013f" dir="ltr"><td id="ps01" class="">$20.00</td><td id="ps02" class="">$19.50</td><td id="ps03" class="">$0.50</td><td id="ps04" class="">6</td></tr></tbody></table><p id="3aa8b41e-eb64-9000-8000-000000000140" class="" dir="auto">Look at the second row: 6 shares at $20 is $120, which is more than the whole account, so in reality you would buy 5. With a small account you are often limited by what you can afford rather than by the risk formula, and your real risk ends up below the maximum. That is fine — it is the safe direction to be wrong in.</p><h2 id="3aa8b41e-eb64-9000-8000-000000000141" class="" dir="auto">A note on 3%</h2><p id="3aa8b41e-eb64-9000-8000-000000000142" class="" dir="auto">3% per trade is aggressive. The conventional range is 0.5% to 1%, and there is a reason: six losses in a row is completely normal in this strategy, and at 3% that is 18% of the account gone, which needs a 22% gain to recover.</p><p id="3aa8b41e-eb64-9000-8000-000000000143" class="" dir="auto">On $100 the dollar amounts are trivial and 3% is a reasonable way to get enough shares to make trades meaningful. But treat it as a starting-out allowance, not a permanent rule. Somewhere around $2,000–5,000, step it down to 1%.</p></div></details><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.125em;line-height:1.3;margin:0"><h4 id="3aa8b41e-eb64-9000-8000-000000000144" style="display:inline-block">Portfolio heat — the cap on total risk</h4></summary><div class="indented"><p id="3aa8b41e-eb64-9000-8000-000000000145" class="" dir="auto">Risk per trade is not the same thing as risk overall. Six positions at 3% each is an 18% loss if the market turns and they all stop out together — and in a real selloff they do all stop out together.</p><pre id="3aa8b41e-eb64-9000-8000-000000000146" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Portfolio heat = sum of (entry − stop) × shares, across all open positions
+
+Cap:                   6% of the account
+Max open positions:    4 to 6
+</code></pre><ul id="3aa8b41e-eb64-9000-8000-000000000147" class="bulleted-list" dir="auto"><li style="list-style-type:disc">At 3% per trade the cap means <strong>two positions at full risk</strong>. A third has to wait for one of the first two to move its stop up.</li></ul><ul id="3aa8b41e-eb64-9000-8000-000000000148" class="bulleted-list" dir="auto"><li style="list-style-type:disc">Once a stop is at breakeven that position's risk is zero and it stops counting against the cap. This is a concrete reason to move to breakeven at 2R, beyond how it feels.</li></ul><ul id="3aa8b41e-eb64-9000-8000-000000000149" class="bulleted-list" dir="auto"><li style="list-style-type:disc"><strong>Correlation counts.</strong> Three semiconductor names are one trade wearing three tickers. Count a cluster in the same industry as a single position against the cap.</li></ul></div></details><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.125em;line-height:1.3;margin:0"><h4 id="3aa8b41e-eb64-9000-8000-00000000014a" style="display:inline-block"><mark class="highlight-red" data-notion-highlight="red">Earnings — check it before every single entry</mark></h4></summary><div class="indented"><p id="3aa8b41e-eb64-9000-8000-00000000014b" class="" dir="auto">Look up the confirmed next earnings date before you commit to any trade. This takes ten seconds and prevents the worst losses you will ever take.</p><ul id="3aa8b41e-eb64-9000-8000-00000000014c" class="bulleted-list" dir="auto"><li style="list-style-type:disc"><strong>No new entry within 7 trading days of the report.</strong></li></ul><ul id="3aa8b41e-eb64-9000-8000-00000000014d" class="bulleted-list" dir="auto"><li style="list-style-type:disc">Already holding when earnings arrive? Decide in advance: close it, or cut to half and accept the gap risk on the rest.</li></ul><p id="3aa8b41e-eb64-9000-8000-00000000014e" class="" dir="auto">The reason this matters more than it sounds: <strong>a stop order does not protect you against a gap.</strong> The stock can open 20% below your stop and you will be filled there, at the open, on the way down. Everything else in this routine assumes your loss is capped at the stop. Earnings is the one event that breaks that assumption.</p><p id="3aa8b41e-eb64-9000-8000-00000000014f" class="" dir="auto">An earnings gap is close to a coin flip regardless of how perfect the chart looks. That is not a swing trade, it is a bet, and it is not what this routine is for.</p></div></details><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.125em;line-height:1.3;margin:0"><h4 id="3aa8b41e-eb64-9000-8000-000000000150" style="display:inline-block">Target price</h4></summary><div class="indented"><p id="3aa8b41e-eb64-9000-8000-000000000151" class="" dir="auto">Nobody can predict where a stock will stop. You are not predicting, you are setting a level that makes the arithmetic work.</p><h2 id="3aa8b41e-eb64-9000-8000-000000000152" class="" dir="auto">Method 1 — R multiples (use this one)</h2><pre id="3aa8b41e-eb64-9000-8000-000000000153" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Entry   $20
+Stop    $19
+Risk    $1     = 1R
+
+Target  $22    = 2R    minimum
+Target  $23    = 3R    better</code></pre><p id="3aa8b41e-eb64-9000-8000-000000000154" class="" dir="auto">Under 2R, the trade does not get taken. With a 2R target you can be wrong more often than right and still make money; at 1R you need to be right about two thirds of the time, which you will not be.</p><h2 id="3aa8b41e-eb64-9000-8000-000000000155" class="" dir="auto">Method 2 — measured move (a sanity check on Method 1)</h2><p id="3aa8b41e-eb64-9000-8000-000000000156" class="" dir="auto">Measure the height of the base and project it up from the breakout point.</p><pre id="3aa8b41e-eb64-9000-8000-000000000157" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Base high    $50
+Base low     $46
+Height       $4
+
+Breakout at  $50   ->  measured target  $54
+
+Now check it against your risk:
+Entry  $50.25
+Stop   $45.50   (below the base low)
+Risk   $4.75
+$54 target = 0.8R   ->  REJECT
+</code></pre><p id="3aa8b41e-eb64-9000-8000-000000000158" class="" dir="auto">That example fails on purpose. When the measured move comes out below 2R, the base is too deep for its own height and the trade is not worth taking. Use Method 2 to sanity-check Method 1, never as a target on its own.</p><h2 id="3aa8b41e-eb64-9000-8000-000000000159" class="" dir="auto">Method 3 — ride the trend</h2><p id="3aa8b41e-eb64-9000-8000-00000000015a" class="" dir="auto">No fixed target. Stay in until price closes below the 8 EMA, or breaks down on heavy volume. This is how the handful of trades that pay for the whole year happen — a fixed target guarantees you are not in one of them.</p></div></details><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.125em;line-height:1.3;margin:0"><h4 id="3aa8b41e-eb64-9000-8000-00000000015b" style="display:inline-block">Taking profit</h4></summary><div class="indented"><ul id="3aa8b41e-eb64-9000-8000-00000000015c" class="bulleted-list" dir="auto"><li style="list-style-type:disc"><strong>Option 1 (default)</strong> — sell 50% at 2R, move the stop to breakeven, trail the rest under the 8 EMA. Locks in a win, frees up portfolio heat, and still leaves you in if it runs.</li></ul><ul id="3aa8b41e-eb64-9000-8000-00000000015d" class="bulleted-list" dir="auto"><li style="list-style-type:disc"><strong>Option 2</strong> — sell everything at 3R. Simple and mechanical, good while you are learning.</li></ul><ul id="3aa8b41e-eb64-9000-8000-00000000015e" class="bulleted-list" dir="auto"><li style="list-style-type:disc"><strong>Option 3</strong> — pure trend ride, exit only on a close below the 8 EMA.</li></ul><p id="3aa8b41e-eb64-9000-8000-00000000015f" class="" dir="auto">Pick one and use it for 20 trades before you change it. Switching method mid-trade is how people end up selling their winners early and holding their losers late.</p><p id="3aa8b41e-eb64-9000-8000-000000000160" class="" dir="auto">Separate from all of this: if price closes back inside the base after breaking out, exit immediately regardless of which option you are running. The setup failed; there is nothing left to manage.</p></div></details></div></details><hr id="3aa8b41e-eb64-9000-8000-000000000161" dir="auto"/><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.25em;line-height:1.3;margin:0"><h3 id="3aa8b41e-eb64-9000-8000-000000000162" style="display:inline-block"><mark class="highlight-purple" data-notion-highlight="purple">Worked example — one evening with NVDA</mark></h3></summary><div class="indented"><p id="3aa8b41e-eb64-9000-8000-000000000163" class="" dir="auto">NVDA came out of Scan A. Here is the whole process end to end.</p><h2 id="3aa8b41e-eb64-9000-8000-000000000164" class="" dir="auto">Weekly pass — 10 seconds</h2><ul id="3aa8b41e-eb64-9000-8000-000000000165" class="bulleted-list" dir="auto"><li style="list-style-type:disc">Up and to the right over 2 years ✅</li></ul><ul id="3aa8b41e-eb64-9000-8000-000000000166" class="bulleted-list" dir="auto"><li style="list-style-type:disc">Above a rising 30-week MA ✅</li></ul><ul id="3aa8b41e-eb64-9000-8000-000000000167" class="bulleted-list" dir="auto"><li style="list-style-type:disc">At the top of its one-year range ✅</li></ul><ul id="3aa8b41e-eb64-9000-8000-000000000168" class="bulleted-list" dir="auto"><li style="list-style-type:disc">Overhead supply: none, it is at new highs ✅</li></ul><p id="3aa8b41e-eb64-9000-8000-000000000169" class="" dir="auto">Survives. On to the daily.</p><h2 id="3aa8b41e-eb64-9000-8000-00000000016a" class="" dir="auto">Daily pass — trend template, 7 of 8</h2><table id="3aa8b41e-eb64-9000-8000-00000000016b" class="simple-table" dir="ltr"><thead class="simple-table-header"><tr id="3aa8b41e-eb64-9000-8000-00000000016c" dir="ltr"><th id="we01" class="simple-table-header-color simple-table-header">Question</th><th id="we02" class="simple-table-header-color simple-table-header">Score</th></tr></thead><tbody><tr id="3aa8b41e-eb64-9000-8000-00000000016d" dir="ltr"><td id="we01" class="">1. Price above the 200 SMA?</td><td id="we02" class="">✅</td></tr><tr id="3aa8b41e-eb64-9000-8000-00000000016e" dir="ltr"><td id="we01" class="">2. 50 SMA above the 200 SMA?</td><td id="we02" class="">✅</td></tr><tr id="3aa8b41e-eb64-9000-8000-00000000016f" dir="ltr"><td id="we01" class="">3. 8 EMA above the 21 EMA?</td><td id="we02" class="">✅</td></tr><tr id="3aa8b41e-eb64-9000-8000-000000000170" dir="ltr"><td id="we01" class="">4. Price above the 8 EMA?</td><td id="we02" class="">☐ — it is resting at the lower half of the base</td></tr><tr id="3aa8b41e-eb64-9000-8000-000000000171" dir="ltr"><td id="we01" class="">5. Higher highs?</td><td id="we02" class="">✅</td></tr><tr id="3aa8b41e-eb64-9000-8000-000000000172" dir="ltr"><td id="we01" class="">6. Higher lows?</td><td id="we02" class="">✅</td></tr><tr id="3aa8b41e-eb64-9000-8000-000000000173" dir="ltr"><td id="we01" class="">7. Volume drying up in the base?</td><td id="we02" class="">✅</td></tr><tr id="3aa8b41e-eb64-9000-8000-000000000174" dir="ltr"><td id="we01" class="">8. Within ~10% of the 52-week high?</td><td id="we02" class="">✅</td></tr></tbody></table><p id="3aa8b41e-eb64-9000-8000-000000000175" class="" dir="auto">7 of 8, and the miss is number 4 — price under the 8 EMA while it sits in the base. That is normal in a flat base and is not a reason to reject. A 7 that was missing higher lows and volume dry-up would be a very different 7.</p><h2 id="3aa8b41e-eb64-9000-8000-000000000176" class="" dir="auto">The base</h2><pre id="3aa8b41e-eb64-9000-8000-000000000177" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Prior advance:   $92 -&gt; $118 over 3 months      ✅ real move into the base
+Base:            4 weeks sideways, $112 - $118
+Depth:           5.4%                            ✅ tight
+Volume:          shrinking week over week        ✅
+Earnings:        24 trading days away            ✅ clear</code></pre><h2 id="3aa8b41e-eb64-9000-8000-000000000178" class="" dir="auto">The written plan</h2><pre id="3aa8b41e-eb64-9000-8000-000000000179" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Ticker:       NVDA
+Pattern:      flat base, 4 weeks
+Resistance:   $118.00
+Entry:        $118.60      (resistance + 0.5%)
+Stop:         $111.40      (below the base low at $112)
+Risk/share:   $7.20        = 6.1% below entry   -&gt; under 8%, takeable
+Target 1:     $133.00      (2R)
+Overhead:     none between entry and target
+Alert:        set at $118.00</code></pre><h2 id="3aa8b41e-eb64-9000-8000-00000000017a" class="" dir="auto">Position size — where a $100 account meets reality</h2><pre id="3aa8b41e-eb64-9000-8000-00000000017b" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">Dollar risk   $100 × 3%   = $3.00
+Shares        $3.00 ÷ $7.20 = 0.41 shares</code></pre><p id="3aa8b41e-eb64-9000-8000-00000000017c" class="" dir="auto">You cannot buy 0.41 of a share at most brokers, and one whole share would put $118 — more than the entire account — at stake. So on a $100 account this trade is simply not available. Two honest options:</p><ul id="3aa8b41e-eb64-9000-8000-00000000017d" class="bulleted-list" dir="auto"><li style="list-style-type:disc">Use a broker with fractional shares, and take the 0.41.</li></ul><ul id="3aa8b41e-eb64-9000-8000-00000000017e" class="bulleted-list" dir="auto"><li style="list-style-type:disc">Or restrict yourself to $10–$30 names, where one share is a sensible unit. Same setup at entry $22.40 with a $1.10 stop distance gives you 2 shares and a real position.</li></ul><p id="3aa8b41e-eb64-9000-8000-00000000017f" class="" dir="auto">This is not a flaw in the strategy, it is what a $100 account is. The routine still works; the pool of tradable names is just smaller until the account grows.</p><h2 id="3aa8b41e-eb64-9000-8000-000000000180" class="" dir="auto">The next day</h2><pre id="3aa8b41e-eb64-9000-8000-000000000181" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all"> 9:30 - 10:00   no trades, watch only
+10:05           $117.80, under the line          -&gt; nothing to do
+11:40           $118.75, RVOL 1.9, above VWAP,
+                above yesterday's close          -&gt; buy at $118.60-119.20
+11:41           stop order placed at $111.40
+15:45           closed at $121.10, above the
+                base                             -&gt; hold, nothing to do</code></pre><p id="3aa8b41e-eb64-9000-8000-000000000182" class="" dir="auto">And the other outcome, which is more common: it never trades above $118 all day, you do nothing, and it stays on the watchlist. Days where you place no trades are the majority of days.</p></div></details><hr id="3aa8b41e-eb64-9000-8000-000000000183" dir="auto"/><details open="" class="" dir="auto"><summary style="font-weight:600;font-size:1.25em;line-height:1.3;margin:0"><h3 id="3aa8b41e-eb64-9000-8000-000000000184" style="display:inline-block"><mark class="highlight-gray" data-notion-highlight="gray">Chart setup and time budget</mark></h3></summary><div class="indented"><h2 id="3aa8b41e-eb64-9000-8000-000000000185" class="" dir="auto">Save one chart template</h2><pre id="3aa8b41e-eb64-9000-8000-000000000186" class="code code-wrap"><code style="white-space:pre-wrap;word-break:break-all">8 EMA
+21 EMA
+50 SMA
+200 SMA
+Volume
+Relative volume (time-adjusted if available)</code></pre><p id="3aa8b41e-eb64-9000-8000-000000000187" class="" dir="auto">Save three layouts so each is one keystroke away:</p><ul id="3aa8b41e-eb64-9000-8000-000000000188" class="bulleted-list" dir="auto"><li style="list-style-type:disc">Weekly, 3 years — the skim</li></ul><ul id="3aa8b41e-eb64-9000-8000-000000000189" class="bulleted-list" dir="auto"><li style="list-style-type:disc">Daily, 6 months — the work</li></ul><ul id="3aa8b41e-eb64-9000-8000-00000000018a" class="bulleted-list" dir="auto"><li style="list-style-type:disc">15-minute, 5 days, with VWAP — the trigger</li></ul><h2 id="3aa8b41e-eb64-9000-8000-00000000018b" class="" dir="auto">Time budget for the evening session</h2><table id="3aa8b41e-eb64-9000-8000-00000000018c" class="simple-table" dir="ltr"><thead class="simple-table-header"><tr id="3aa8b41e-eb64-9000-8000-00000000018d" dir="ltr"><th id="tb01" class="simple-table-header-color simple-table-header">Step</th><th id="tb02" class="simple-table-header-color simple-table-header">Per name</th><th id="tb03" class="simple-table-header-color simple-table-header">How many names</th></tr></thead><tbody><tr id="3aa8b41e-eb64-9000-8000-00000000018e" dir="ltr"><td id="tb01" class="">Weekly skim</td><td id="tb02" class="">5–10 seconds</td><td id="tb03" class="">all 20–80</td></tr><tr id="3aa8b41e-eb64-9000-8000-00000000018f" dir="ltr"><td id="tb01" class="">Daily review</td><td id="tb02" class="">3–5 minutes</td><td id="tb03" class="">the ~10 survivors</td></tr><tr id="3aa8b41e-eb64-9000-8000-000000000190" dir="ltr"><td id="tb01" class="">Write the plan</td><td id="tb02" class="">2 minutes</td><td id="tb03" class="">the 2–5 finalists</td></tr><tr id="3aa8b41e-eb64-9000-8000-000000000191" dir="ltr"><td id="tb01" class=""><strong>Total</strong></td><td id="tb02" class=""><strong>20–30 minutes</strong></td><td id="tb03" class=""></td></tr></tbody></table><p id="3aa8b41e-eb64-9000-8000-000000000192" class="" dir="auto">If it is taking an hour, you are spending too long on the weekly skim. The skim is a reject pass — the moment you find yourself looking for reasons to keep a name, it has already failed.</p></div></details></div></article><span class="sans" style="font-size:14px;padding-top:2em"></span></body></html>

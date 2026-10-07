@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+.ruff_cache/
+dist/
+build/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Runtime output
+out/
+cache/
+*.png
+!docs/**/*.png
+
+# SQLite journal is committed on purpose (state/journal.sqlite); ignore WAL side files
+state/*.sqlite-wal
+state/*.sqlite-shm
+
+# Local scratch
+_patch_preview.txt
+*.ORIGINAL-BACKUP.html

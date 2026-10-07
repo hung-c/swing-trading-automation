@@ -1,0 +1,14 @@
+# FOMC decision days (day 2 of each meeting; statement 14:00 ET, press conference 14:30 ET).
+# Source: https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm  (verified 2026-10-07)
+# Refresh every January.
+decision_days:
+  - 2026-10-28
+  - 2026-12-09
+  - 2027-01-27
+  - 2027-03-17
+  - 2027-04-28
+  - 2027-06-09
+  - 2027-07-28
+  - 2027-09-15
+  - 2027-10-27
+  - 2027-12-08

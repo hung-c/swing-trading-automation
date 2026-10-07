@@ -1,0 +1,126 @@
+# All thresholds from "Quy Trình Giao Dịch Swing". Change here, not in code.
+
+account:
+  size_usd: 5000          # doc: $100 example; ~$2k-5k -> 1% risk
+  risk_pct_per_trade: 1.0 # doc: 3% is high; normal 0.5-1%
+  heat_cap_pct: 6.0       # doc: tổng rủi ro mở <= 6%
+  max_positions: 6        # doc: 4-6
+  max_per_sector: 2       # research: <=2 per sector; same sector counts as 1 for heat
+  max_notional_pct: 25.0  # Minervini: <=25% equity per name
+  allow_fractional: false
+
+# Scan A (Finviz replica). Ladder is applied step by step until >= target_min results.
+screener:
+  price_min: 10.0
+  market_cap_min: 2.0e9
+  avg_volume_min: 1_000_000     # 3-month (63-session) average
+  pct_below_52w_high_max: 10.0  # 0-10% below high
+  weekly_volatility_max: 3.0    # Finviz "Volatility Week" = mean((H-L)/C) last 5 sessions, in %
+  require_price_above_sma50: true
+  require_price_above_sma200: true
+  require_sma50_above_sma200: true
+  earnings_exclude_trading_days: 7   # doc: earnings within 7 trading days -> loại
+  earnings_estimate_pad_days: 2      # widen when the date is only estimated
+  target_min_results: 20
+  target_max_results: 80
+  ladder:
+    - {pct_below_52w_high_max: 20.0}
+    - {weekly_volatility_max: 5.0}
+    - {avg_volume_min: 500_000}
+    - {market_cap_min: 1.0e9}
+  # Research extras (Minervini Trend Template / Weinstein / RS). Soft = reported & scored, not hard-filtered.
+  extras:
+    rs_rating_min: 70
+    rs_hard_filter: false
+    trend_template_hard_filter: false
+    pct_above_52w_low_min: 30.0
+    sma200_rising_sessions: 20
+
+trend_score:
+  min_score: 6          # doc: >=6 go on, <6 drop
+  near_high_pct: 10.0
+
+patterns:
+  pivot_window: 3                 # bars each side for swing pivots (confirmation lag = pivot_window)
+  bull_flag:  {pole_min_pct: 15.0, pole_max_bars: 20, flag_min_bars: 5, flag_max_bars: 20, pullback_max_pct: 15.0}
+  flat_base:  {min_weeks: 5, max_weeks: 8, depth_max_pct: 15.0, prior_run_min_pct: 20.0}
+  asc_triangle: {min_weeks: 4, max_weeks: 10, top_flat_tol_pct: 2.0, min_touches_top: 2}
+  cup_handle: {cup_min_weeks: 7, cup_max_months: 6, cup_depth_min_pct: 12.0, cup_depth_max_pct: 33.0,
+               handle_min_days: 5, handle_max_days: 15, handle_depth_max_pct: 15.0}
+  base_general: {min_weeks: 2, max_weeks: 12, depth_max_pct: 15.0, prior_run_min_pct: 25.0}
+  vcp: {max_ratio: 0.75, last_contraction_max_pct: 10.0}
+  overhead_supply: {lookback_months: 24, zone_pct_above: 10.0, bins: 40, dense_quantile: 0.80}
+  resistance_max_pct_above_price: 8.0
+
+risk:
+  entry_buffer_pct_min: 0.5
+  entry_buffer_pct_max: 1.0
+  stop_max_pct_normal: 8.0
+  stop_max_pct_reduced: 12.0
+  min_r_multiple: 2.0
+  atr_stop_min_mult: 1.0
+  atr_stop_max_mult: 2.0
+  breakout_volume_mult_min: 1.5
+  earnings_warn_days_open_positions: 2
+
+regime:
+  index_symbols: {spx: "SPY", ndx: "QQQ"}
+  futures_symbols: {es: "ES=F", nq: "NQ=F"}
+  futures_red_threshold_pct: -0.75
+  distribution_day_drop_pct: -0.2
+  distribution_window_sessions: 25
+  distribution_expire_rally_pct: 5.0
+  distribution_pressure_count: 5
+  distribution_correction_count: 7
+  ftd_min_gain_pct: 1.25
+  breadth_risk_on_pct: 60.0
+  breadth_risk_off_pct: 40.0
+  faber_months: 10
+  sizing_table:
+    both_above_50: {size: "full", max_new: null}
+    one_above_50:  {size: "half", max_new: 2}
+    both_below_50: {size: "none", max_new: 0}
+    one_below_200: {size: "none", max_new: 0}
+
+intraday:
+  session_start: "10:00"
+  session_end: "15:45"
+  rvol_min: 1.5
+  rvol_excellent: 2.0
+  rvol_baseline_sessions: 20
+  no_chase_pct_above_resistance: 1.0
+  macro_no_entry_until: "10:00"
+  fomc_no_entry_after: "13:30"
+
+manage:
+  sell_half_at_r: 2.0
+  trail_ema: 8
+  earnings_decision_days: 2
+
+charts:
+  weekly_years: 3
+  daily_months: 6
+  intraday_days: 5
+  intraday_interval_min: 15
+  dpi: 130
+
+news:
+  lookback_days: 7
+  max_headlines_per_ticker: 8
+  alphavantage_daily_budget: 10
+
+llm:
+  provider_order: ["groq", "gemini", "template"]
+  groq_model: "llama-3.3-70b-versatile"
+  gemini_model: "gemini-2.5-flash"
+  max_output_tokens: 1800
+
+universe:
+  exchanges: ["NASDAQ", "NYSE", "AMEX"]
+  exclude_name_patterns: ["warrant", " unit", "preferred", "depositary", " right", "notes due", "%"]
+  max_tickers_for_bars: 3000
+
+paths:
+  state_dir: "state"
+  out_dir: "out"
+  cache_dir: "cache"
