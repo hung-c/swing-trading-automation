@@ -1,0 +1,54 @@
+name: intraday
+
+# Every 15 min 10:03-15:48 ET on weekdays (holiday/early-close guard in code). ~24 runs/day x ~1.5 min.
+on:
+  schedule:
+    - cron: "3,18,33,48 10-15 * * 1-5"
+      timezone: "America/New_York"
+  workflow_dispatch:
+    inputs:
+      manage:
+        description: "force the management pass"
+        type: boolean
+        default: false
+
+concurrency:
+  group: swing-state
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  intraday:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv python install 3.12
+      - run: uv sync
+      - id: guard
+        run: echo "run=$(uv run swing should-run intraday)" >> "$GITHUB_OUTPUT"
+      - name: alerts (+ manage near the close)
+        if: steps.guard.outputs.run == 'true' || github.event_name == 'workflow_dispatch'
+        env:
+          ALPACA_KEY: ${{ secrets.ALPACA_KEY }}
+          ALPACA_SECRET: ${{ secrets.ALPACA_SECRET }}
+          FINNHUB_KEY: ${{ secrets.FINNHUB_KEY }}
+          GROQ_KEY: ${{ secrets.GROQ_KEY }}
+          GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_PARENT_PAGE_ID: ${{ secrets.NOTION_PARENT_PAGE_ID }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          ARGS=""
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then ARGS="--force"; fi
+          if [ "${{ github.event.inputs.manage }}" = "true" ]; then ARGS="$ARGS --manage"; fi
+          uv run swing intraday $ARGS
+      - name: commit state
+        if: steps.guard.outputs.run == 'true' || github.event_name == 'workflow_dispatch'
+        run: bash .github/scripts/commit_state.sh "intraday"

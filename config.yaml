@@ -86,7 +86,7 @@ regime:
 
 intraday:
   session_start: "10:00"
-  session_end: "15:45"
+  session_end: "15:50"   # cron fires at :03/:18/:33/:48; the 15:48 run is the doc's 15:45 management pass
   rvol_min: 1.5
   rvol_excellent: 2.0
   rvol_baseline_sessions: 20

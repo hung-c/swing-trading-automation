@@ -1,0 +1,50 @@
+name: premarket
+
+on:
+  schedule:
+    - cron: "3 7 * * 1-5"
+      timezone: "America/New_York"
+  workflow_dispatch:
+
+concurrency:
+  group: swing-state
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  premarket:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv python install 3.12
+      - run: uv sync
+      - id: guard
+        run: echo "run=$(uv run swing should-run premarket)" >> "$GITHUB_OUTPUT"
+      - name: premarket regime
+        if: steps.guard.outputs.run == 'true' || github.event_name == 'workflow_dispatch'
+        env:
+          ALPACA_KEY: ${{ secrets.ALPACA_KEY }}
+          ALPACA_SECRET: ${{ secrets.ALPACA_SECRET }}
+          FINNHUB_KEY: ${{ secrets.FINNHUB_KEY }}
+          ALPHAVANTAGE_KEY: ${{ secrets.ALPHAVANTAGE_KEY }}
+          GROQ_KEY: ${{ secrets.GROQ_KEY }}
+          GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_PARENT_PAGE_ID: ${{ secrets.NOTION_PARENT_PAGE_ID }}
+          MASSIVE_KEY: ${{ secrets.MASSIVE_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          FRED_KEY: ${{ secrets.FRED_KEY }}
+        run: |
+          FORCE=""
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then FORCE="--force"; fi
+          uv run swing premarket $FORCE
+      - name: commit state
+        if: steps.guard.outputs.run == 'true' || github.event_name == 'workflow_dispatch'
+        run: bash .github/scripts/commit_state.sh "premarket"

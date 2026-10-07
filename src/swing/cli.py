@@ -46,12 +46,36 @@ def cmd_check(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_should_run(args: argparse.Namespace) -> int:
+    """Print 'true'/'false' for the scheduler: trading day, early-close handling, session window."""
+    from swing.calendars import close_time_et, in_session_window, is_early_close, is_trading_day, now_et
+
+    cfg = load_config()
+    now = now_et()
+    ok = is_trading_day(now.date())
+    if ok and args.job == "nightly":
+        close = close_time_et(now.date())
+        # run at the first cron after the close: 13:xx on early-close days, 16:xx otherwise
+        if is_early_close(now.date()):
+            ok = now.hour == close.hour
+        else:
+            ok = now.hour >= 16
+    elif ok and args.job == "intraday":
+        ok = in_session_window(cfg.intraday.session_start, cfg.intraday.session_end, now)
+    print("true" if ok else "false")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="swing")
     p.add_argument("-v", "--verbose", action="store_true")
     sub = p.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("check", help="config/calendar/secrets smoke test").set_defaults(fn=cmd_check)
+
+    sp = sub.add_parser("should-run", help="scheduler guard: prints true/false")
+    sp.add_argument("job", choices=["nightly", "premarket", "intraday"])
+    sp.set_defaults(fn=cmd_should_run)
 
     sp = sub.add_parser("nightly", help="16:35 ET: screen -> patterns -> plans -> news -> brief -> Notion")
     sp.add_argument("--dry-run", action="store_true", help="do not publish to Notion")

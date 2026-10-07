@@ -1,0 +1,32 @@
+name: weekly-report
+
+on:
+  schedule:
+    - cron: "11 17 * * 5"
+      timezone: "America/New_York"
+  workflow_dispatch:
+
+concurrency:
+  group: swing-state
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv python install 3.12
+      - run: uv sync
+      - name: expectancy / SQN report
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_PARENT_PAGE_ID: ${{ secrets.NOTION_PARENT_PAGE_ID }}
+        run: uv run swing report
+      - run: bash .github/scripts/commit_state.sh "report"
