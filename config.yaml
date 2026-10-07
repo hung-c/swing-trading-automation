@@ -58,8 +58,9 @@ risk:
   stop_max_pct_normal: 8.0
   stop_max_pct_reduced: 12.0
   min_r_multiple: 2.0
-  atr_stop_min_mult: 1.0
-  atr_stop_max_mult: 2.0
+  atr_stop_min_mult: 1.0      # stop tighter than 1x ATR14 is noise -> widened
+  atr_stop_max_mult: 3.0      # wider than this is flagged (research: 2-3x); reject only if atr_hard_reject
+  atr_hard_reject: false      # doc's 8% / 12% rule is the hard limit by default
   breakout_volume_mult_min: 1.5
   earnings_warn_days_open_positions: 2
 
