@@ -71,8 +71,9 @@ regime:
   distribution_day_drop_pct: -0.2
   distribution_window_sessions: 25
   distribution_expire_rally_pct: 5.0
-  distribution_pressure_count: 5
-  distribution_correction_count: 7
+  distribution_pressure_count: 5          # >=5 in 25 sessions -> "under pressure" -> half size
+  distribution_correction_count: 7        # >=7 AND index off highs -> "correction" -> no new entries
+  distribution_correction_min_off_high_pct: 3.0
   ftd_min_gain_pct: 1.25
   breadth_risk_on_pct: 60.0
   breadth_risk_off_pct: 40.0
