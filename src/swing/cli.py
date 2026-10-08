@@ -55,6 +55,15 @@ def cmd_db_init(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_db_push(args: argparse.Namespace) -> int:
+    """Copy local state/journal.sqlite into Neon (use after a sqlite nightly)."""
+    from swing import journal
+
+    counts = journal.push_sqlite()
+    print(f"pushed sqlite -> {journal.backend()}: {counts}")
+    return 0
+
+
 def cmd_should_run(args: argparse.Namespace) -> int:
     """Print 'true'/'false' for the scheduler: trading day, early-close handling, session window."""
     from swing.calendars import close_time_et, in_session_window, is_early_close, is_trading_day, now_et
@@ -105,8 +114,10 @@ def main(argv: list[str] | None = None) -> int:
     sp.add_argument("--manage", action="store_true", help="force the 15:45 management pass")
     sp.set_defaults(fn=lambda a: _lazy("swing.jobs", "run_intraday")(a))
 
-    sp = sub.add_parser("db-init", help="create/verify the journal tables (Postgres if DATABASE_URL is set, else SQLite)")
+    sp = sub.add_parser("db-init", help="create/verify Neon tables (requires DATABASE_URL)")
     sp.set_defaults(fn=cmd_db_init)
+
+    sub.add_parser("db-push", help="copy state/journal.sqlite into Neon (DATABASE_URL)").set_defaults(fn=cmd_db_push)
 
     sp = sub.add_parser("report", help="weekly expectancy/SQN report from the journal")
     sp.add_argument("--dry-run", action="store_true")

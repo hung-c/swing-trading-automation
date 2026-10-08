@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   report:
@@ -24,10 +24,12 @@ jobs:
           enable-cache: true
       - run: uv python install 3.12
       - run: uv sync
+      - name: require Neon
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: test -n "$DATABASE_URL" || { echo "Set the DATABASE_URL Actions secret (Neon)."; exit 1; }
       - name: expectancy / SQN report
         if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: uv run swing report
-      - if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
-        run: bash .github/scripts/commit_state.sh "report"

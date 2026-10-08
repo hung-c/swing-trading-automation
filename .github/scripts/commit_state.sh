@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Commit state/ (AV budget, local sqlite when DATABASE_URL is unset) back to the repo.
+# Optional leftover: AV budget JSON if anything still writes it. Journal is Neon, not sqlite.
 set -euo pipefail
 JOB="${1:-job}"
 git config user.name "swing-bot"
 git config user.email "swing-bot@users.noreply.github.com"
-git add -A state/ || true
+git add state/av_budget.json 2>/dev/null || true
 if git diff --cached --quiet; then
   echo "no state changes"
   exit 0

@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   intraday:
@@ -29,6 +29,10 @@ jobs:
           enable-cache: true
       - run: uv python install 3.12
       - run: uv sync
+      - name: require Neon
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: test -n "$DATABASE_URL" || { echo "Set the DATABASE_URL Actions secret (Neon)."; exit 1; }
       - id: guard
         run: echo "run=$(uv run swing should-run intraday)" >> "$GITHUB_OUTPUT"
       - name: alerts (+ manage near the close)
@@ -47,6 +51,3 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then ARGS="--force"; fi
           if [ "${{ github.event.inputs.manage }}" = "true" ]; then ARGS="$ARGS --manage"; fi
           uv run swing intraday $ARGS
-      - name: commit state
-        if: steps.guard.outputs.run == 'true' || github.event_name == 'workflow_dispatch'
-        run: bash .github/scripts/commit_state.sh "intraday"

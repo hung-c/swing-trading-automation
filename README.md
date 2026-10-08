@@ -36,18 +36,20 @@ All thresholds live in `config.yaml` (account size, risk %, Scan A filters and l
 ### 1. Pipeline (Python)
 
 1. `uv sync --extra dev`
-2. Copy `.env.example` to `.env` and fill the keys. Minimum useful set: `ALPACA_KEY/SECRET` (paper), `FINNHUB_KEY`, `GROQ_KEY`.
+2. Copy `.env.example` to `.env` and fill the keys. Minimum useful set: `ALPACA_KEY/SECRET` (paper), `FINNHUB_KEY`, `GROQ_KEY`, **`DATABASE_URL`**.
 3. `uv run swing check` — config, calendar and which secrets are present.
 4. `uv run swing nightly --dry-run --force --limit 300` — first end-to-end run without writing the database; markdown + charts land in `out/`.
 
-### 2. Database (Neon, free)
+### 2. Database (Neon, required)
+
+The journal is **only** Neon. GitHub Actions, local `swing nightly`, and the Vercel app all use the same `DATABASE_URL`. SQLite exists solely inside pytest (`path=` tmp files).
 
 1. Create a project at [console.neon.tech](https://console.neon.tech). Copy the connection string (`sslmode=require`).
 2. Put it in `.env` as `DATABASE_URL=...`
 3. `uv run swing db-init` — creates the tables in `db/schema.sql`.
-4. Add the same `DATABASE_URL` as a **GitHub Actions repository secret** so nightly/premarket/intraday write to Neon instead of the local sqlite file.
+4. Add the same `DATABASE_URL` as a **GitHub Actions repository secret** and as a **Vercel env var**.
 
-Without `DATABASE_URL` the pipeline still runs against `state/journal.sqlite` (dev and tests).
+If `DATABASE_URL` is missing, jobs refuse to run (they will not fall back to sqlite).
 
 ### 3. Dashboard (Vercel)
 
@@ -79,14 +81,13 @@ src/swing/
   config.py          config.yaml + .env
   models.py          Pydantic contracts between agents
   calendars.py       NYSE sessions, early closes, ET clock
-  journal.py         SQLite (local) or Postgres (Neon) journal
+  journal.py         Neon journal (sqlite only in tests)
   jobs.py            nightly / premarket / intraday / report
-  cli.py             swing check | should-run | nightly | premarket | intraday | db-init | report | parity
+  cli.py             swing check | should-run | nightly | premarket | intraday | db-init | db-push | report | parity
   ...
 web/                 Next.js App Router dashboard (Vercel)
 db/schema.sql        Postgres schema shared with the web app
 tests/
-state/               av_budget.json; journal.sqlite when DATABASE_URL is unset
 ```
 
 ## Notes from the first live runs
