@@ -42,6 +42,10 @@ CREATE TABLE IF NOT EXISTS strategies (
   payload TEXT NOT NULL, created_at TEXT, updated_at TEXT);
 CREATE TABLE IF NOT EXISTS charts (
   day TEXT NOT NULL, symbol TEXT NOT NULL, kind TEXT NOT NULL, png BLOB NOT NULL, PRIMARY KEY (day, symbol, kind));
+CREATE TABLE IF NOT EXISTS job_runs (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, job TEXT NOT NULL, step TEXT, status TEXT NOT NULL,
+  started_at TEXT NOT NULL, finished_at TEXT, summary TEXT, error TEXT);
+CREATE INDEX IF NOT EXISTS job_runs_lookup_idx ON job_runs (job, step, started_at);
 """
 
 _PG_READY: set[str] = set()
@@ -515,6 +519,127 @@ def push_sqlite(src: Path | None = None) -> dict[str, int]:
     counts["alerts"] = n
     scon.close()
     return counts
+
+
+def _iso(v) -> str | None:
+    if v is None:
+        return None
+    if isinstance(v, datetime):
+        return v.isoformat()
+    return str(v)
+
+
+def _opt_json(v):
+    if v is None:
+        return None
+    return _json(v)
+
+
+def _insert_run(db: Db, job: str, step: str | None, status: str, summary, error: str | None) -> int:
+    now = datetime.now(UTC).isoformat()
+    finished = None if status == "running" else now
+    row = db.one(
+        """INSERT INTO job_runs (job, step, status, started_at, finished_at, summary, error)
+           VALUES (?,?,?,?,?,?,?) RETURNING id""",
+        (job, step, status, now, finished, _json_or_none(db, summary), error),
+    )
+    if not row:
+        raise RuntimeError("job_runs insert did not return an id")
+    return int(row["id"])
+
+
+def _json_or_none(db: Db, obj):
+    if obj is None:
+        return None
+    return _json_param(db, obj)
+
+
+def begin_run(job: str, path: Path | None = None) -> int:
+    """Open a job-level row (step is null) with status running."""
+    with connect(path) as db:
+        return _insert_run(db, job, None, "running", None, None)
+
+
+def record_step(
+    run_id: int,
+    job: str,
+    step: str,
+    status: str,
+    summary: dict | None = None,
+    error: str | None = None,
+    path: Path | None = None,
+) -> int:
+    """Insert a step row. status ``running`` leaves finished_at empty; anything else closes it.
+
+    ``run_id`` is the open job row. Steps are stored beside it (same ``job``); the id must be a real run.
+    """
+    if run_id <= 0:
+        raise ValueError("run_id is required")
+    with connect(path) as db:
+        return _insert_run(db, job, step, status, summary, error)
+
+
+def finish_step(
+    step_id: int,
+    status: str,
+    summary: dict | None = None,
+    error: str | None = None,
+    path: Path | None = None,
+) -> None:
+    """Close a step row that was inserted as running."""
+    with connect(path) as db:
+        db.execute(
+            "UPDATE job_runs SET status=?, finished_at=?, summary=?, error=? WHERE id=?",
+            (status, datetime.now(UTC).isoformat(), _json_or_none(db, summary), error, step_id),
+        )
+
+
+def note_run(run_id: int, summary: dict, path: Path | None = None) -> None:
+    """Update the open job row's summary (used for the step currently in progress)."""
+    with connect(path) as db:
+        db.execute("UPDATE job_runs SET summary=? WHERE id=?", (_json_param(db, summary), run_id))
+
+
+def finish_run(
+    run_id: int,
+    status: str,
+    summary: dict | None = None,
+    error: str | None = None,
+    path: Path | None = None,
+) -> None:
+    """Close the job-level row opened by begin_run."""
+    with connect(path) as db:
+        db.execute(
+            "UPDATE job_runs SET status=?, finished_at=?, summary=?, error=? WHERE id=?",
+            (status, datetime.now(UTC).isoformat(), _json_or_none(db, summary), error, run_id),
+        )
+
+
+def list_job_runs(path: Path | None = None, job: str | None = None) -> list[dict]:
+    with connect(path) as db:
+        if job:
+            rows = db.all(
+                """SELECT id, job, step, status, started_at, finished_at, summary, error
+                   FROM job_runs WHERE job=? ORDER BY id""",
+                (job,),
+            )
+        else:
+            rows = db.all(
+                "SELECT id, job, step, status, started_at, finished_at, summary, error FROM job_runs ORDER BY id"
+            )
+    return [
+        {
+            "id": int(r["id"]),
+            "job": r["job"],
+            "step": r["step"],
+            "status": r["status"],
+            "started_at": _iso(r["started_at"]),
+            "finished_at": _iso(r["finished_at"]),
+            "summary": _opt_json(r["summary"]),
+            "error": r["error"],
+        }
+        for r in rows
+    ]
 
 
 def prune(keep_days: int = 21, path: Path | None = None) -> None:
