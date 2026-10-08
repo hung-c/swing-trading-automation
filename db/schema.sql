@@ -96,3 +96,17 @@ CREATE TABLE IF NOT EXISTS charts (
   png    BYTEA NOT NULL,
   PRIMARY KEY (day, symbol, kind)
 );
+
+-- One row per job invocation (step is null) and one row per step. status=running until finish.
+CREATE TABLE IF NOT EXISTS job_runs (
+  id          BIGSERIAL PRIMARY KEY,
+  job         TEXT NOT NULL,
+  step        TEXT,
+  status      TEXT NOT NULL,
+  started_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  finished_at TIMESTAMPTZ,
+  summary     JSONB,
+  error       TEXT
+);
+
+CREATE INDEX IF NOT EXISTS job_runs_lookup_idx ON job_runs (job, step, started_at DESC);
