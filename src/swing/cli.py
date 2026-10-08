@@ -69,6 +69,8 @@ def cmd_should_run(args: argparse.Namespace) -> int:
             ok = now.hour == close.hour
         else:
             ok = now.hour >= 16
+    elif ok and args.job == "premarket":
+        ok = now.hour == 7
     elif ok and args.job == "intraday":
         ok = in_session_window(cfg.intraday.session_start, cfg.intraday.session_end, now)
     print("true" if ok else "false")

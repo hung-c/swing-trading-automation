@@ -1,10 +1,13 @@
 name: weekly-report
 
+# Fri 17:11 ET ≈ 21:11 UTC (EDT).
 on:
-  schedule:
-    - cron: "11 17 * * 5"
-      timezone: "America/New_York"
   workflow_dispatch:
+  schedule:
+    - cron: "11 21 * * 5"
+  push:
+    branches: [master, main]
+    paths: [".github/workflows/weekly-report.yml"]
 
 concurrency:
   group: swing-state
@@ -25,7 +28,9 @@ jobs:
       - run: uv python install 3.12
       - run: uv sync
       - name: expectancy / SQN report
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: uv run swing report
-      - run: bash .github/scripts/commit_state.sh "report"
+      - if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+        run: bash .github/scripts/commit_state.sh "report"
