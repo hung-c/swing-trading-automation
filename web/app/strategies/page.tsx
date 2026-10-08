@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Empty, Nav, Setup } from "@/components/Nav";
-import { gatesOn, STRATEGY_SECTIONS } from "@/lib/strategy";
+import { BUILTIN_STRATEGY_ID, gatesOn, STRATEGY_SECTIONS } from "@/lib/strategy";
 import { loadStrategies } from "@/lib/strategies";
 
 export const dynamic = "force-dynamic";
@@ -66,9 +66,12 @@ export default async function StrategiesPage() {
                       {row.updatedAt ? ` · ${when(row.updatedAt)}` : ""}
                     </div>
                   </div>
-                  <span className={`chip ${row.status === "active" ? "ok" : row.status === "paused" ? "warn" : ""}`}>
-                    {row.status}
-                  </span>
+                  <div className="pills">
+                    {row.id === BUILTIN_STRATEGY_ID ? <span className="chip">built-in</span> : null}
+                    <span className={`chip ${row.status === "active" ? "ok" : row.status === "paused" ? "warn" : ""}`}>
+                      {row.status}
+                    </span>
+                  </div>
                 </div>
                 <p className="notes">{row.strategy.profile.thesis}</p>
                 <div className="pills">

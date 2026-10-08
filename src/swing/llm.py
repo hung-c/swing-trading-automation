@@ -9,10 +9,14 @@ from __future__ import annotations
 import json
 import logging
 
-from pydantic import ValidationError
+from typing import TypeVar
+
+from pydantic import BaseModel, ValidationError
 
 from swing.config import Cfg, env, load_config
 from swing.models import BriefProse, DailyBrief
+
+T = TypeVar("T", bound=BaseModel)
 
 log = logging.getLogger(__name__)
 
@@ -53,6 +57,7 @@ def _facts(brief: DailyBrief) -> dict:
                 "missing": p.trend_missing, "resistance": p.resistance, "entry": p.entry, "stop": p.stop, "stop_pct": p.stop_pct,
                 "shares": p.shares, "target_2r": p.target_2r, "rs": p.rs_rating, "sector": p.sector,
                 "earnings_days": p.earnings.trading_days_away if p.earnings else None, "notes": p.notes,
+                "evaluations": [{"gate": e.gate, "verdict": e.verdict, "reasons": e.reasons[:3]} for e in p.evaluations],
             }
             for p in brief.plans
         ],
@@ -79,7 +84,7 @@ def _pick_model(client, preferred: list[str]) -> str:
     raise RuntimeError(f"none of {preferred} available; provider offers {sorted(available)[:12]}...")
 
 
-def _openai_compatible(base_url: str, api_key: str, preferred: list[str], facts: dict, max_tokens: int) -> BriefProse:
+def _chat_json(base_url: str, api_key: str, preferred: list[str], system: str, facts: dict, max_tokens: int) -> tuple[dict, str]:
     from openai import OpenAI
 
     from swing.data.usage import note, provider_for_url
@@ -94,16 +99,52 @@ def _openai_compatible(base_url: str, api_key: str, preferred: list[str], facts:
         note(pid)
     resp = client.chat.completions.create(
         model=model,
-        messages=[{"role": "system", "content": SYSTEM}, {"role": "user", "content": json.dumps(facts, default=str)}],
+        messages=[{"role": "system", "content": system}, {"role": "user", "content": json.dumps(facts, default=str)}],
         temperature=0.3,
         max_tokens=max_tokens,
         response_format={"type": "json_object"},
     )
     txt = resp.choices[0].message.content or "{}"
     data = json.loads(txt)
+    if not isinstance(data, dict):
+        raise json.JSONDecodeError("object required", txt, 0)
+    return data, model
+
+
+def _openai_compatible(base_url: str, api_key: str, preferred: list[str], facts: dict, max_tokens: int) -> BriefProse:
+    data, _model = _chat_json(base_url, api_key, preferred, SYSTEM, facts, max_tokens)
     if isinstance(data.get("tomorrow_checklist"), str):
         data["tomorrow_checklist"] = [data["tomorrow_checklist"]]
     return BriefProse.model_validate(data)
+
+
+def judge(system: str, facts: dict, model: type[T], cfg: Cfg | None = None) -> tuple[T, str] | None:
+    """Groq, then Gemini. None when no provider returns valid JSON. Does not use the brief template."""
+    cfg = cfg or load_config()
+    for provider in cfg.llm.provider_order:
+        try:
+            groq_key = env("GROQ_KEY")
+            gemini_key = env("GEMINI_KEY")
+            if provider == "groq" and groq_key:
+                data, name = _chat_json("https://api.groq.com/openai/v1", groq_key, list(cfg.llm.groq_models), system, facts, cfg.llm.max_output_tokens)
+                return model.model_validate(data), f"groq:{name}"
+            if provider == "gemini" and gemini_key:
+                data, name = _chat_json(
+                    "https://generativelanguage.googleapis.com/v1beta/openai/",
+                    gemini_key,
+                    list(cfg.llm.gemini_models),
+                    system,
+                    facts,
+                    cfg.llm.max_output_tokens,
+                )
+                return model.model_validate(data), f"gemini:{name}"
+            if provider == "template":
+                return None
+        except (ValidationError, json.JSONDecodeError) as e:
+            log.warning("LLM %s returned invalid judge JSON: %s", provider, str(e)[:200])
+        except Exception as e:  # noqa: BLE001
+            log.warning("LLM %s failed: %s", provider, str(e)[:200])
+    return None
 
 
 def template(brief: DailyBrief) -> BriefProse:

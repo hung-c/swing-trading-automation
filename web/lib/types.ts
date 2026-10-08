@@ -33,6 +33,16 @@ export type PlanCard = {
   rejected_reason?: string | null;
   notes?: string[];
   chart_paths?: Record<string, string>;
+  evaluations?: TickerEvaluation[];
+};
+
+export type TickerEvaluation = {
+  verdict: "take" | "watch" | "skip";
+  reasons: string[];
+  open_questions: string[];
+  model: string;
+  prompt_version: string;
+  gate: "plan_card" | "actionable_alert" | "management";
 };
 
 export type DistributionState = {
