@@ -23,6 +23,13 @@ cache/
 state/*.sqlite-wal
 state/*.sqlite-shm
 
+# Next.js / Vercel
+web/node_modules/
+web/.next/
+web/out/
+web/.env.local
+web/.vercel/
+
 # Local scratch
 _patch_preview.txt
 *.ORIGINAL-BACKUP.html

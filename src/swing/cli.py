@@ -1,4 +1,4 @@
-"""Entry points: `swing nightly | premarket | intraday | eod | setup-notion | check`."""
+﻿"""Entry points: `swing nightly | premarket | intraday | report | db-init | check`."""
 
 from __future__ import annotations
 
@@ -37,12 +37,21 @@ def cmd_check(args: argparse.Namespace) -> int:
         "alphavantage": has_env("ALPHAVANTAGE_KEY"),
         "groq": has_env("GROQ_KEY"),
         "gemini": has_env("GEMINI_KEY"),
-        "notion": has_env("NOTION_TOKEN", "NOTION_PARENT_PAGE_ID"),
+        "database": has_env("DATABASE_URL"),
         "massive": has_env("MASSIVE_KEY"),
         "telegram": has_env("TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"),
     }
     for k, v in secrets.items():
         print(f"  secret {k:12s} {'OK' if v else 'missing'}")
+    return 0
+
+
+def cmd_db_init(args: argparse.Namespace) -> int:
+    from swing import journal
+
+    with journal.connect() as db:
+        n = db.one("SELECT COUNT(*) AS n FROM plans")["n"]
+    print(f"journal backend: {journal.backend()} (plans rows: {n})")
     return 0
 
 
@@ -77,8 +86,8 @@ def main(argv: list[str] | None = None) -> int:
     sp.add_argument("job", choices=["nightly", "premarket", "intraday"])
     sp.set_defaults(fn=cmd_should_run)
 
-    sp = sub.add_parser("nightly", help="16:35 ET: screen -> patterns -> plans -> news -> brief -> Notion")
-    sp.add_argument("--dry-run", action="store_true", help="do not publish to Notion")
+    sp = sub.add_parser("nightly", help="16:35 ET: screen -> patterns -> plans -> news -> brief -> database")
+    sp.add_argument("--dry-run", action="store_true", help="write nothing to the database / Telegram")
     sp.add_argument("--limit", type=int, default=None, help="cap universe size (debug)")
     sp.add_argument("--force", action="store_true", help="run even on a non-trading day")
     sp.set_defaults(fn=lambda a: _lazy("swing.jobs", "run_nightly")(a))
@@ -94,8 +103,8 @@ def main(argv: list[str] | None = None) -> int:
     sp.add_argument("--manage", action="store_true", help="force the 15:45 management pass")
     sp.set_defaults(fn=lambda a: _lazy("swing.jobs", "run_intraday")(a))
 
-    sp = sub.add_parser("setup-notion", help="create the Notion parent page + 4 databases (idempotent)")
-    sp.set_defaults(fn=lambda a: _lazy("swing.notion_publisher", "cmd_setup")(a))
+    sp = sub.add_parser("db-init", help="create/verify the journal tables (Postgres if DATABASE_URL is set, else SQLite)")
+    sp.set_defaults(fn=cmd_db_init)
 
     sp = sub.add_parser("report", help="weekly expectancy/SQN report from the journal")
     sp.add_argument("--dry-run", action="store_true")

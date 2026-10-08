@@ -1,4 +1,4 @@
-"""Alpha Vantage free tier: 25 requests/day. Budget is tracked in state/av_budget.json.
+﻿"""Alpha Vantage free tier: 25 requests/day. Budget is tracked in the journal kv table.
 
 Used for: EARNINGS_CALENDAR (1 call, whole market CSV) and NEWS_SENTIMENT (<= cfg.news.alphavantage_daily_budget calls).
 """
@@ -7,13 +7,11 @@ from __future__ import annotations
 
 import csv
 import io
-import json
 import logging
 import time
 from datetime import UTC, date, datetime, timedelta
-from pathlib import Path
 
-from swing.config import ROOT, env, load_config
+from swing.config import env
 from swing.data.http import get
 from swing.models import EarningsInfo, NewsItem
 
@@ -26,30 +24,26 @@ def available() -> bool:
     return bool(env("ALPHAVANTAGE_KEY"))
 
 
-def _budget_path() -> Path:
-    p = ROOT / load_config().paths.state_dir
-    p.mkdir(parents=True, exist_ok=True)
-    return p / "av_budget.json"
-
-
 def _spend(n: int = 1) -> bool:
-    """Return True if we may spend n more calls today."""
-    p = _budget_path()
+    """Return True if we may spend n more calls today. The counter lives in the journal kv (survives CI runs)."""
+    from swing import journal
+
     today = date.today().isoformat()
-    data = {"date": today, "used": 0}
-    if p.exists():
-        try:
-            data = json.loads(p.read_text())
-        except Exception:  # noqa: BLE001
-            pass
-        if data.get("date") != today:
-            data = {"date": today, "used": 0}
+    try:
+        data = journal.kv_get("av_budget") or {}
+    except Exception as e:  # noqa: BLE001 - never block a run on the budget store
+        log.warning("AV budget store unavailable (%s); allowing call", e)
+        return True
+    if data.get("date") != today:
+        data = {"date": today, "used": 0}
     if data["used"] + n > DAILY_CAP:
         return False
     data["used"] += n
-    p.write_text(json.dumps(data))
+    try:
+        journal.kv_set("av_budget", data)
+    except Exception as e:  # noqa: BLE001
+        log.warning("AV budget write failed: %s", e)
     return True
-
 
 _last_call = 0.0
 _premium: set[str] = set()  # functions AV has told us are premium on this key (e.g. NEWS_SENTIMENT since 2026)

@@ -1,16 +1,16 @@
-"""Job orchestration: nightly (16:35 ET), premarket (07:00 ET), intraday (every 15 min 10:00-15:45 ET), report.
+﻿"""Job orchestration: nightly (16:35 ET), premarket (07:00 ET), intraday (every 15 min 10:00-15:45 ET), report.
 
 Each job is a plain sequence of agent calls passing Pydantic models. Every job exits early on non-trading days
-unless --force. --dry-run skips Notion.
+unless --force. --dry-run writes nothing to the journal/DB and sends no push (local markdown only).
 """
 
 from __future__ import annotations
 
 import logging
-from datetime import time
+from datetime import UTC, datetime, time
+from pathlib import Path
 
 from swing import charts, journal, llm
-from swing import notion_publisher as notion
 from swing.agents import alerts, manage, news, pattern, regime, risk, screener, universe
 from swing.calendars import (
     close_time_et,
@@ -36,19 +36,29 @@ def _guard(force: bool) -> bool:
     return False
 
 
-def _publish(brief: DailyBrief, dry_run: bool, upload_charts: bool = True) -> str | None:
-    pid = None
-    if not dry_run and notion.available():
+def _publish(brief: DailyBrief, dry_run: bool) -> None:
+    """The web app reads briefs from the journal DB; this is the whole 'publish' step."""
+    if not dry_run:
         try:
-            pid = notion.publish_brief(brief, upload_charts=upload_charts)
+            journal.save_brief(brief.date, brief.kind, brief.model_dump(mode="json"))
+            journal.kv_set("status:" + brief.kind, {"date": brief.date.isoformat(), "at": datetime.now(UTC).isoformat(), "llm": brief.llm_provider})
         except Exception as e:  # noqa: BLE001
-            log.error("notion publish failed: %s", e)
-            brief.warnings.append(f"Notion publish failed: {e}")
-    elif not dry_run:
-        log.warning("Notion not configured; brief kept locally only")
-    journal.save_brief(brief.date, brief.kind, pid, brief.model_dump(mode="json"))
+            log.error("saving brief to %s failed: %s", journal.backend(), e)
+            brief.warnings.append(f"brief not saved: {e}")
     _write_local(brief)
-    return pid
+
+
+def _store_charts(plans, day: str) -> None:
+    """Upload chart PNGs into the journal DB (served by the web app) and point plan.chart_paths at the web route."""
+    for p in plans:
+        served: dict[str, str] = {}
+        for kind, path in p.chart_paths.items():
+            try:
+                journal.save_chart(day, p.symbol, kind, Path(path).read_bytes())
+                served[kind] = f"/api/chart/{day}/{p.symbol}/{kind}"
+            except Exception as e:  # noqa: BLE001
+                log.warning("chart upload %s/%s failed: %s", p.symbol, kind, e)
+        p.chart_paths = served
 
 
 def _write_local(brief: DailyBrief) -> None:
@@ -126,17 +136,14 @@ def run_nightly(args) -> int:
     )
     brief.prose, brief.llm_provider = llm.write(brief, cfg)
 
-    journal.save_plans(session, watch + rejected)
-    journal.kv_set(f"regime:{session.isoformat()}", reg.model_dump(mode="json"))
+    if not args.dry_run:
+        _store_charts(watch, day)
+        journal.save_plans(session, watch + rejected)
+        journal.kv_set(f"regime:{session.isoformat()}", reg.model_dump(mode="json"))
+        journal.prune()
     _publish(brief, args.dry_run)
     if not args.dry_run:
         telegram.push_nightly(brief)
-    if not args.dry_run and notion.available():
-        try:
-            notion.upsert_plans(watch + rejected, session)
-            notion.upsert_positions(positions)
-        except Exception as e:  # noqa: BLE001
-            log.error("notion mirror failed: %s", e)
     print(f"nightly {session}: screen {out.strict_count} strict / {len(out.rows)} final (ladder {out.ladder_step}), "
           f"{len(kept)} candidates, {len(watch)} plans, {len(rejected)} rejected; sizing {reg.sizing}; llm {brief.llm_provider}")
     for p in watch:
@@ -158,8 +165,9 @@ def run_premarket(args) -> int:
     warn = [f"{s}: earnings in {e.trading_days_away} trading days" for s, e in pos_earn.items() if e.trading_days_away is not None and e.trading_days_away <= cfg.manage.earnings_decision_days]
     brief = DailyBrief(date=today, kind="premarket", regime=reg, plans=plans, positions=positions, heat_pct=journal.heat_pct(cfg.account.size_usd, positions), warnings=warn)
     brief.prose, brief.llm_provider = llm.write(brief, cfg)
-    journal.kv_set(f"regime:{today.isoformat()}", reg.model_dump(mode="json"))
-    _publish(brief, args.dry_run, upload_charts=False)
+    if not args.dry_run:
+        journal.kv_set(f"regime:{today.isoformat()}", reg.model_dump(mode="json"))
+    _publish(brief, args.dry_run)
     print(f"premarket {today}: sizing {reg.sizing} (max new {reg.max_new_positions}); {len(plans)} plans armed; notes: {reg.notes}")
     return 0
 
@@ -193,18 +201,20 @@ def run_intraday(args) -> int:
         if not df.empty:
             yday[s] = float(df["close"].iloc[-1])
     found = alerts.run(plans, positions, prices, yday, intra, reg, now, cfg)
-    new = journal.save_alerts(found)
+    if args.dry_run:
+        new = found
+    else:
+        new = journal.save_alerts(found)
+        # live prices for the web dashboard's P/L and distance-to-entry columns
+        journal.kv_set("prices", {"at": now.isoformat(), "prices": {s: float(v) for s, v in prices.items() if v}})
     for a in new:
         print(f"{a.ts:%H:%M} {a.symbol} {a.condition}{' *' if a.actionable else ''}: {a.message}")
-        if a.condition == "breakout_confirmed":
-            journal.update_plan_status(_latest_plan_date(), a.symbol, "triggered")
+        if a.condition == "breakout_confirmed" and not args.dry_run:
+            pd_ = journal.latest_plan_date()
+            if pd_:
+                journal.update_plan_status(pd_, a.symbol, "triggered")
     if new and not args.dry_run:
         telegram.push_alerts(new)
-        if notion.available():
-            try:
-                notion.append_alerts(new)
-            except Exception as e:  # noqa: BLE001
-                log.error("notion alerts failed: %s", e)
 
     close = close_time_et(now.date()) or time(16, 0)
     manage_window = (now.hour, now.minute) >= (close.hour, max(close.minute - 20, 0)) if close else False
@@ -214,18 +224,10 @@ def run_intraday(args) -> int:
         actions = manage.run(positions, frames_full, prices, pos_earn, cfg) if positions else []
         brief = DailyBrief(date=today_et(), kind="eod", regime=reg, positions=positions, manage=actions, alerts=new, heat_pct=journal.heat_pct(cfg.account.size_usd, positions))
         brief.prose, brief.llm_provider = llm.write(brief, cfg)
-        _publish(brief, args.dry_run, upload_charts=False)
+        _publish(brief, args.dry_run)
         for m in actions:
             print(f"MANAGE {m.symbol}: {m.action} - {m.reason}")
     return 0
-
-
-def _latest_plan_date():
-    from datetime import date
-
-    with journal.connect() as con:
-        r = con.execute("SELECT MAX(plan_date) d FROM plans").fetchone()
-    return date.fromisoformat(r["d"]) if r and r["d"] else today_et()
 
 
 # ---------------------------------------------------------------- weekly report
@@ -235,11 +237,4 @@ def run_report(args) -> int:
     cfg = load_config()
     text = build_report(cfg)
     print(text)
-    if not args.dry_run and notion.available():
-        from datetime import date
-
-        brief = DailyBrief(date=today_et(), kind="eod")
-        brief.prose = llm.BriefProse(headline=f"Weekly performance report {date.today().isoformat()}", market_summary=text[:1500], watchlist_commentary="", risk_notes="", tomorrow_checklist=[])
-        brief.kind = "eod"
-        _publish(brief, False, upload_charts=False)
     return 0

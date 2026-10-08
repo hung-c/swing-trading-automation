@@ -1,7 +1,6 @@
 from datetime import date, datetime
 
-from swing import llm
-from swing import notion_publisher as npub
+from swing import journal, llm
 from swing.agents import pattern, risk, screener
 from swing.charts import charts_for_plan
 from swing.models import Alert, DailyBrief, ManageAction, Position, RegimeReport, TickerNews
@@ -39,17 +38,16 @@ def test_facts_contain_no_rejected_as_plans(flat_base_frame, cfg):
     assert facts["regime"]["sizing"] == "full"
 
 
-def test_notion_blocks_build_without_network(flat_base_frame, cfg):
+def test_brief_persists_to_journal(flat_base_frame, cfg, tmp_path):
     b = _brief(flat_base_frame, cfg)
     b.prose, b.llm_provider = llm.template(b), "template"
-    blocks = npub._regime_blocks(b) + npub._plan_blocks(b, upload_charts=False) + npub._news_blocks(b) + npub._ops_blocks(b)
-    assert any(x["type"] == "callout" for x in blocks)
-    assert any(x["type"] == "code" for x in blocks)
-    assert any(x["type"] == "to_do" for x in blocks)
-    for x in blocks:
-        for v in x.values():
-            if isinstance(v, dict) and "rich_text" in v:
-                assert all(len(t["text"]["content"]) <= 2000 for t in v["rich_text"])
+    db = tmp_path / "j.sqlite"
+    journal.save_brief(b.date, b.kind, b.model_dump(mode="json"), path=db)
+    loaded = journal.latest_brief(path=db)
+    assert loaded is not None
+    assert loaded["kind"] == "nightly"
+    assert loaded["prose"]["headline"]
+    assert any(p["symbol"] == "FLAT" for p in loaded["plans"])
 
 
 def test_charts_render(flat_base_frame, cfg, tmp_path, monkeypatch):

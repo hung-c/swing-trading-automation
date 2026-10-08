@@ -1,4 +1,4 @@
-"""Van Tharp trade-log analytics from the SQLite journal: expectancy (mean R), SQN, win rate, by pattern."""
+﻿"""Van Tharp trade-log analytics from the trade journal: expectancy (mean R), SQN, win rate, by pattern."""
 
 from __future__ import annotations
 
