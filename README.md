@@ -101,3 +101,5 @@ state/               av_budget.json; journal.sqlite when DATABASE_URL is unset
 
 - Order placement (plan card -> Webull bracket by hand).
 - Any paid data (Finviz Elite, Finnhub candles, FMP screener, TradingView webhooks). `finvizfinance` scraping was rejected (ToS + Cloudflare).
+Test1
+\
