@@ -1,5 +1,5 @@
 import { asObj, first, getSql, rows } from "./db";
-import { normalizeStrategy, type Strategy, type StrategyStatus } from "./strategy";
+import { BUILTIN_STRATEGY_ID, builtinStrategy, normalizeStrategy, type Strategy, type StrategyStatus } from "./strategy";
 
 export type StrategyRecord = {
   id: string;
@@ -29,6 +29,18 @@ async function ensureTable(): Promise<void> {
   tableReady = true;
 }
 
+async function ensureBuiltin(): Promise<void> {
+  const sql = getSql();
+  if (!sql) return;
+  await ensureTable();
+  const doc = builtinStrategy();
+  const payload = JSON.stringify(doc);
+  await sql`
+    INSERT INTO strategies (id, name, status, payload)
+    VALUES (${BUILTIN_STRATEGY_ID}, ${doc.profile.name}, ${doc.profile.status}, ${payload}::jsonb)
+    ON CONFLICT (id) DO NOTHING`;
+}
+
 function stamp(v: unknown): string {
   if (v == null) return "";
   if (v instanceof Date) return v.toISOString();
@@ -51,12 +63,13 @@ function mapRow(r: Record<string, unknown>): StrategyRecord | null {
 export async function loadStrategies(): Promise<{ configured: boolean; strategies: StrategyRecord[] }> {
   const sql = getSql();
   if (!sql) return { configured: false, strategies: [] };
-  await ensureTable();
+  await ensureBuiltin();
   const raw = await sql`SELECT id, name, status, payload, created_at, updated_at FROM strategies ORDER BY updated_at DESC`;
   const strategies = rows<Record<string, unknown>>(raw).flatMap((r) => {
     const row = mapRow(r);
     return row ? [row] : [];
   });
+  strategies.sort((a, b) => Number(b.id === BUILTIN_STRATEGY_ID) - Number(a.id === BUILTIN_STRATEGY_ID));
   return { configured: true, strategies };
 }
 
@@ -64,7 +77,7 @@ export async function loadStrategy(id: string): Promise<StrategyRecord | null> {
   if (!ID_RE.test(id)) return null;
   const sql = getSql();
   if (!sql) return null;
-  await ensureTable();
+  await ensureBuiltin();
   const raw = await sql`SELECT id, name, status, payload, created_at, updated_at FROM strategies WHERE id = ${id} LIMIT 1`;
   const row = first<Record<string, unknown>>(raw);
   return row ? mapRow(row) : null;
@@ -103,6 +116,7 @@ export async function saveStrategy(
 }
 
 export async function deleteStrategy(id: string): Promise<{ ok: true } | { ok: false; error: string; status: number }> {
+  if (id === BUILTIN_STRATEGY_ID) return { ok: false, error: "The swing routine stays on the desk. Duplicate it to make another.", status: 400 };
   if (!ID_RE.test(id)) return { ok: false, error: "Unknown strategy", status: 400 };
   const sql = getSql();
   if (!sql) return { ok: false, error: "DATABASE_URL missing", status: 500 };

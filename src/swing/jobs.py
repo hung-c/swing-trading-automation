@@ -10,7 +10,7 @@ import logging
 from datetime import UTC, datetime, time
 from pathlib import Path
 
-from swing import charts, journal, llm
+from swing import charts, evaluate, journal, llm
 from swing.agents import alerts, manage, news, pattern, regime, risk, screener, universe
 from swing.calendars import (
     close_time_et,
@@ -131,6 +131,9 @@ def run_nightly(args) -> int:
     reg = regime.run(session, frames, cfg)
     pos_earn = earnings.upcoming([p.symbol for p in positions], session, confirm_with_yf=True) if positions else {}
     actions = manage.run(positions, frames, {}, pos_earn, cfg) if positions else []
+    note = evaluate.attach_plan_cards(watch, reg, tnews, cfg)
+    if note:
+        warnings.append(note)
 
     brief = DailyBrief(
         date=session, kind="nightly", regime=reg,
@@ -216,6 +219,12 @@ def run_intraday(args) -> int:
         journal.kv_set("prices", {"at": now.isoformat(), "prices": {s: float(v) for s, v in prices.items() if v}})
     for a in new:
         print(f"{a.ts:%H:%M} {a.symbol} {a.condition}{' *' if a.actionable else ''}: {a.message}")
+        matched = next((p for p in plans if p.symbol == a.symbol), None)
+        if matched and not args.dry_run:
+            ev = evaluate.attach_alert(matched, a, reg, cfg)
+            pd_ = journal.latest_plan_date()
+            if ev and pd_:
+                journal.save_plan_payload(pd_, matched)
         if a.condition == "breakout_confirmed" and not args.dry_run:
             pd_ = journal.latest_plan_date()
             if pd_:
@@ -229,6 +238,8 @@ def run_intraday(args) -> int:
         frames_full, _ = bars.daily([p.symbol for p in positions], years=1.0) if positions else ({}, "")
         pos_earn = earnings.upcoming([p.symbol for p in positions], today_et()) if positions else {}
         actions = manage.run(positions, frames_full, prices, pos_earn, cfg) if positions else []
+        if not args.dry_run:
+            evaluate.attach_management(actions, reg, cfg)
         brief = DailyBrief(date=today_et(), kind="eod", regime=reg, positions=positions, manage=actions, alerts=new, heat_pct=journal.heat_pct(cfg.account.size_usd, positions))
         brief.prose, brief.llm_provider = llm.write(brief, cfg)
         _publish(brief, args.dry_run)

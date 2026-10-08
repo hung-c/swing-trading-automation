@@ -78,7 +78,7 @@ CREATE TABLE IF NOT EXISTS kv (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- User-defined strategy documents. The payload is the nine-section rule set (see web/lib/strategy.ts).
+-- User-defined strategy documents. The payload is the rule set, including the evaluator text (see web/lib/strategy.ts).
 CREATE TABLE IF NOT EXISTS strategies (
   id         TEXT PRIMARY KEY,
   name       TEXT NOT NULL,
