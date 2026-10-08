@@ -37,6 +37,9 @@ CREATE TABLE IF NOT EXISTS alerts (
 CREATE TABLE IF NOT EXISTS briefs (
   brief_date TEXT NOT NULL, kind TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT, PRIMARY KEY (brief_date, kind));
 CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT NOT NULL, updated_at TEXT);
+CREATE TABLE IF NOT EXISTS strategies (
+  id TEXT PRIMARY KEY, name TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'draft',
+  payload TEXT NOT NULL, created_at TEXT, updated_at TEXT);
 CREATE TABLE IF NOT EXISTS charts (
   day TEXT NOT NULL, symbol TEXT NOT NULL, kind TEXT NOT NULL, png BLOB NOT NULL, PRIMARY KEY (day, symbol, kind));
 """
