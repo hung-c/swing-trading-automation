@@ -76,6 +76,9 @@ def daily_bars(symbols: list[str], start: date, end: date | None = None) -> dict
             adjustment=Adjustment.SPLIT,
             # no `limit`: in alpaca-py it caps TOTAL bars across all symbols (10k = ~13 symbols x 3y); unset -> paginate all
         )
+        from swing.data.usage import note
+
+        note("alpaca")
         try:
             bars = client.get_stock_bars(req)
         except Exception as e:  # noqa: BLE001
@@ -110,6 +113,9 @@ def intraday_bars(
         feed=DataFeed.SIP if feed == "sip" else DataFeed.IEX,
         adjustment=Adjustment.SPLIT,
     )
+    from swing.data.usage import note
+
+    note("alpaca")
     try:
         bars = client.get_stock_bars(req)
     except Exception as e:  # noqa: BLE001
@@ -129,6 +135,9 @@ def latest_prices(symbols: list[str]) -> dict[str, float]:
     from alpaca.data.enums import DataFeed
     from alpaca.data.requests import StockLatestTradeRequest
 
+    from swing.data.usage import note
+
+    note("alpaca")
     try:
         res = _client().get_stock_latest_trade(StockLatestTradeRequest(symbol_or_symbols=symbols, feed=DataFeed.IEX))
     except Exception as e:  # noqa: BLE001
@@ -145,6 +154,9 @@ def news(symbols: list[str], days: int, limit: int = 50) -> list[NewsItem]:
     client = NewsClient(env("ALPACA_KEY", required=True), env("ALPACA_SECRET", required=True))
     start = datetime.now(UTC) - timedelta(days=days)
     out: list[NewsItem] = []
+    from swing.data.usage import note
+
+    note("alpaca")
     try:
         res = client.get_news(NewsRequest(symbols=",".join(symbols), start=start, limit=limit, include_content=False))
     except Exception as e:  # noqa: BLE001

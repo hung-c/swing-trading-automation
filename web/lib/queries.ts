@@ -1,3 +1,4 @@
+import type { ApiTest, ApiUsage, AvBudget } from "./apis";
 import { asDate, asObj, first, getSql, rows, toPngBuffer } from "./db";
 import type { AlertRow, DailyBrief, PlanCard, PositionRow, Snapshot, TradeRow } from "./types";
 
@@ -105,6 +106,51 @@ function mapPosition(r: Record<string, unknown>): PositionRow {
     r_multiple: r.r_multiple == null ? null : Number(r.r_multiple),
     resistance: r.resistance == null ? null : Number(r.resistance),
   };
+}
+
+export async function loadApiUsage(): Promise<{ configured: boolean; usage: ApiUsage | null; av: AvBudget | null; test: ApiTest | null }> {
+  const sql = getSql();
+  const empty = { configured: Boolean(sql), usage: null, av: null, test: null };
+  if (!sql) return empty;
+  try {
+    const found = rows<{ k: string; v: unknown; updated_at?: string }>(
+      await sql`SELECT k, v, updated_at FROM kv WHERE k IN ('api_usage', 'av_budget', 'api_test')`,
+    );
+    let usage: ApiUsage | null = null;
+    let av: AvBudget | null = null;
+    let test: ApiTest | null = null;
+    for (const row of found) {
+      if (row.k === "api_usage") {
+        const v = asObj<{
+          date?: string;
+          calls?: Record<string, number>;
+          jobs?: Record<string, { runs?: number; calls?: Record<string, number> }>;
+          secrets?: Record<string, boolean>;
+        }>(row.v);
+        const jobs: ApiUsage["jobs"] = {};
+        for (const [name, bucket] of Object.entries(v.jobs ?? {})) {
+          jobs[name] = { runs: Number(bucket?.runs ?? 0), calls: bucket?.calls ?? {} };
+        }
+        usage = {
+          date: String(v.date ?? ""),
+          calls: v.calls ?? {},
+          jobs,
+          secrets: v.secrets ?? {},
+          updatedAt: row.updated_at ?? null,
+        };
+      } else if (row.k === "av_budget") {
+        const v = asObj<{ date?: string; used?: number }>(row.v);
+        av = { date: String(v.date ?? ""), used: Number(v.used ?? 0) };
+      } else if (row.k === "api_test") {
+        const v = asObj<{ at?: string; results?: ApiTest["results"] }>(row.v);
+        test = { at: String(v.at ?? row.updated_at ?? ""), results: v.results ?? [] };
+      }
+    }
+    return { configured: true, usage, av, test };
+  } catch (e) {
+    console.error("loadApiUsage failed", e);
+    return { ...empty, configured: true };
+  }
 }
 
 export async function loadPlan(symbol: string): Promise<{ plan: PlanCard; day: string } | null> {

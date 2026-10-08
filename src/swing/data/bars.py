@@ -81,6 +81,9 @@ def latest(symbols: list[str]) -> dict[str, float]:
         try:
             import yfinance
 
+            from swing.data.usage import note
+
+            note("yfinance")
             fi = yfinance.Ticker(s).fast_info
             out[s] = float(fi["last_price"])
         except Exception:  # noqa: BLE001

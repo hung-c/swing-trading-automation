@@ -128,7 +128,17 @@ def main(argv: list[str] | None = None) -> int:
 
     args = p.parse_args(argv)
     _setup_logging(args.verbose)
-    return int(args.fn(args) or 0)
+    try:
+        return int(args.fn(args) or 0)
+    finally:
+        if args.cmd in {"check", "nightly", "premarket", "intraday", "report"}:
+            from swing.data.usage import flush
+
+            saved = flush(job=None if args.cmd == "check" else args.cmd)
+            if saved is not None:
+                n = sum(int(v) for v in saved.get("calls", {}).values())
+                scope = "keys" if args.cmd == "check" else args.cmd
+                print(f"api usage: {n} live calls stored for {saved['date']} ({scope}, dashboard /apis)")
 
 
 def _lazy(module: str, fn: str):
