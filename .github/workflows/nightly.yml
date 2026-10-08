@@ -1,13 +1,8 @@
 name: nightly
 
-# 16:37 ET on normal days; 13:37 ET on early-close days (the guard decides which one actually runs).
-# Off-:00 minutes reduce GitHub cron drift. `timezone` handles DST.
+# 16:37 ET (20:37 UTC EDT / 21:37 UTC EST); 13:37 ET on early-close days.
+# Dual UTC hours cover DST; `swing should-run nightly` picks the right one.
 on:
-  schedule:
-    - cron: "37 16 * * 1-5"
-      timezone: "America/New_York"
-    - cron: "37 13 * * 1-5"
-      timezone: "America/New_York"
   workflow_dispatch:
     inputs:
       limit:
@@ -18,6 +13,11 @@ on:
         description: "skip database writes"
         type: boolean
         default: false
+  schedule:
+    - cron: "37 17,18,20,21 * * 1-5"
+  push:
+    branches: [master, main]
+    paths: [".github/workflows/nightly.yml"]
 
 concurrency:
   group: swing-state

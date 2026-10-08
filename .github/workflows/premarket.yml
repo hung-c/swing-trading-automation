@@ -1,10 +1,13 @@
 name: premarket
 
+# 07:03 ET = 11:03 UTC (EDT) / 12:03 UTC (EST). Guard requires hour==7 ET.
 on:
-  schedule:
-    - cron: "3 7 * * 1-5"
-      timezone: "America/New_York"
   workflow_dispatch:
+  schedule:
+    - cron: "3 11,12 * * 1-5"
+  push:
+    branches: [master, main]
+    paths: [".github/workflows/premarket.yml"]
 
 concurrency:
   group: swing-state

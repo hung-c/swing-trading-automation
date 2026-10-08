@@ -1,16 +1,18 @@
 name: intraday
 
-# Every 15 min 10:03-15:48 ET on weekdays (holiday/early-close guard in code). ~24 runs/day x ~1.5 min.
+# Every 15 min 10:03-15:48 ET. UTC hours 14-20 cover EDT and EST; session guard is in code.
 on:
-  schedule:
-    - cron: "3,18,33,48 10-15 * * 1-5"
-      timezone: "America/New_York"
   workflow_dispatch:
     inputs:
       manage:
         description: "force the management pass"
         type: boolean
         default: false
+  schedule:
+    - cron: "3,18,33,48 14-20 * * 1-5"
+  push:
+    branches: [master, main]
+    paths: [".github/workflows/intraday.yml"]
 
 concurrency:
   group: swing-state
