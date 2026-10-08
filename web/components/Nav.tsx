@@ -8,6 +8,7 @@ const TABS = [
   ["/alerts", "Alerts"],
   ["/journal", "Journal"],
   ["/apis", "APIs"],
+  ["/flow", "Flow"],
 ] as const;
 
 export function Nav({ active, stamp }: { active: string; stamp?: string | null }) {
