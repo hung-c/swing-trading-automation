@@ -5,12 +5,9 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "3 11,12 * * 1-5"
-  push:
-    branches: [master, main]
-    paths: [".github/workflows/premarket.yml"]
 
 concurrency:
-  group: swing-state
+  group: swing-premarket
   cancel-in-progress: false
 
 permissions:
