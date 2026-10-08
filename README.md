@@ -3,8 +3,12 @@
 Free-API Python pipeline that replaces the manual Finviz / Webull routine in
 "Quy Trình Giao Dịch Swing" (`Swing trade Routine.html`). It screens, scores,
 writes plan cards, checks market regime, raises intraday alerts and publishes
-English daily briefs to Notion. Execution stays manual: you copy the plan card
-into a Webull bracket order.
+English daily briefs to a **Vercel dashboard**. Execution stays manual: you copy
+the plan card into a Webull bracket order.
+
+Vercel cannot run the pandas/Alpaca nightly job (too heavy, too slow). GitHub
+Actions still computes everything and writes it to a Neon Postgres database;
+the Next.js app in `web/` is the reading surface.
 
 ## What runs when (ET, NYSE trading days only)
 
@@ -12,7 +16,7 @@ into a Webull bracket order.
 | --- | --- | --- |
 | `swing premarket` | 07:03 | SPY/QQQ vs MA50/MA200, ES/NQ futures, distribution days / follow-through, breadth, Faber 10-mo SMA, macro blackout (CPI/PPI/NFP/GDP/FOMC) -> sizing for today |
 | `swing intraday` | :03/:18/:33/:48, 10:00-15:50 | For each plan: resistance cross, > yesterday close, > VWAP, time-adjusted RVOL > 1.5, no-chase (> +1%) flag; stop / 2R checks for positions. The 15:48 run also does management (failed-breakout exit, sell half at 2R, trail under 8 EMA, earnings <= 2 days) |
-| `swing nightly` | 16:37 (13:37 on early-close days) | Universe -> SIP bars -> Scan A (Finviz replica + ladder) -> RS rating / Trend Template -> weekly clear-sky + overhead supply -> 8-point trend score -> patterns (bull flag, flat base, ascending triangle, cup & handle, VCP/tightness score) -> plan cards (entry / stop / size / 2R) -> news -> Groq prose -> Notion brief + charts |
+| `swing nightly` | 16:37 (13:37 on early-close days) | Universe -> SIP bars -> Scan A -> weekly clear-sky + overhead supply -> 8-point trend score -> patterns -> plan cards -> news -> Groq prose -> Neon (briefs, plans, chart PNGs) |
 | `swing report` | Fri 17:11 | Expectancy / SQN per pattern from the trade journal |
 
 All thresholds live in `config.yaml` (account size, risk %, Scan A filters and ladder, pattern geometry, regime table).
@@ -21,25 +25,43 @@ All thresholds live in `config.yaml` (account size, risk %, Scan A filters and l
 
 - Prices: Alpaca Market Data Basic (paper account; `feed=sip` for windows ending > 15 min ago gives consolidated volume). Fallback: Massive grouped-daily, then yfinance.
 - Universe / market cap / sector: Nasdaq Trader symbol directory + Nasdaq.com screener JSON (keyless). yfinance `info` for float; SEC EDGAR as tiebreaker.
-- Earnings: Finnhub calendar (primary, one call for the whole market), yfinance `calendar` (only free source with a confirmed/estimate flag; estimated dates widen the exclusion window), Alpha Vantage CSV (cross-check). Without Finnhub/AV keys it falls back to yfinance per symbol.
-- News: Alpaca News (Benzinga) + Alpha Vantage `NEWS_SENTIMENT` (budgeted, 25 calls/day). Fallback: Finnhub company-news, yfinance news. Red-flag keywords (offering, downgrade, investigation, guidance cut...) are surfaced on the plan card.
+- Earnings: Finnhub calendar (primary), yfinance `calendar`, Alpha Vantage CSV. Without Finnhub/AV keys it falls back to yfinance per symbol.
+- News: Alpaca News (Benzinga). Alpha Vantage `NEWS_SENTIMENT` is premium so it is skipped on the free key. Fallback: Finnhub company-news, yfinance news.
 - Macro: `data/macro_static.yaml` (CPI/PPI/NFP; bls.gov blocks scripts), BEA JSON (GDP/PCE), FRED (optional key), `data/fomc.yaml`.
 - LLM prose: Groq (free) -> Gemini (free) -> plain template. The model only writes prose; every number comes from code and the output is Pydantic-validated.
-- Publishing: Notion API 2025-09-03 (internal integration; databases with data sources; chart PNGs via the File Upload API). Optional Telegram push for actionable alerts.
+- Delivery: Vercel Next.js app (`web/`) reading Neon. Optional Telegram push for actionable alerts.
 
 ## Setup
 
+### 1. Pipeline (Python)
+
 1. `uv sync --extra dev`
-2. Copy `.env.example` to `.env` and fill the keys (each key has a link in the file). Minimum useful set: `ALPACA_KEY/SECRET` (paper), `FINNHUB_KEY`, `GROQ_KEY`, `NOTION_TOKEN` + `NOTION_PARENT_PAGE_ID`.
+2. Copy `.env.example` to `.env` and fill the keys. Minimum useful set: `ALPACA_KEY/SECRET` (paper), `FINNHUB_KEY`, `GROQ_KEY`.
 3. `uv run swing check` — config, calendar and which secrets are present.
-4. `uv run swing setup-notion` — creates the "Swing Trading System" page with the Daily Briefs / Plans / Positions / Alerts databases under your parent page (share the parent page with the integration first). Ids are stored in `state/notion_ids.json`.
-5. `uv run swing nightly --dry-run --force --limit 300` — first end-to-end run without publishing; output in `out/` (markdown brief + charts).
-6. Push to a private GitHub repo and add the same keys as repository secrets. Workflows are in `.github/workflows/` (ET timezone, holiday/early-close guard, state committed back after each run). Budget is ~900 of the 2,000 free minutes/month.
-7. Validate for two weeks on paper: compare the nightly list with the Finviz URL printed at the bottom of each brief, and note GitHub cron drift (5-30 min is normal; if it matters, move the intraday job to Google Cloud Scheduler).
+4. `uv run swing nightly --dry-run --force --limit 300` — first end-to-end run without writing the database; markdown + charts land in `out/`.
+
+### 2. Database (Neon, free)
+
+1. Create a project at [console.neon.tech](https://console.neon.tech). Copy the connection string (`sslmode=require`).
+2. Put it in `.env` as `DATABASE_URL=...`
+3. `uv run swing db-init` — creates the tables in `db/schema.sql`.
+4. Add the same `DATABASE_URL` as a **GitHub Actions repository secret** so nightly/premarket/intraday write to Neon instead of the local sqlite file.
+
+Without `DATABASE_URL` the pipeline still runs against `state/journal.sqlite` (dev and tests).
+
+### 3. Dashboard (Vercel)
+
+1. Import this GitHub repo in [vercel.com](https://vercel.com/new).
+2. Set **Root Directory** to `web`.
+3. Environment variables: `DATABASE_URL` (same Neon string) and optional `DASHBOARD_PASSWORD` (gates the UI).
+4. Deploy. Local preview: `cd web && npm install && npm run dev` (needs `web/.env.local` with `DATABASE_URL`).
+5. After the next `swing nightly` (or a workflow_dispatch with `--force`) the Today page fills in.
+
+Budget is ~900 of the 2,000 GitHub Actions free minutes/month. Vercel Hobby is enough — the app only reads Postgres.
 
 ## Recording trades
 
-Execution is manual, so tell the journal what you did (Notion mirrors it on the next run):
+Execution is manual. Log fills on the **Positions** page, or from Python:
 
 ```python
 from datetime import date
@@ -57,19 +79,14 @@ src/swing/
   config.py          config.yaml + .env
   models.py          Pydantic contracts between agents
   calendars.py       NYSE sessions, early closes, ET clock
-  indicators.py      SMA/EMA/ATR/ADR/RS rating/BB width/VWAP/time-adjusted RVOL
-  patterns.py        pivots, base detection, four patterns, VCP, overhead supply, base count, trend score
-  charts.py          mplfinance PNGs (weekly 3y / daily 6mo / 15-min + VWAP)
-  journal.py         SQLite: plans, positions, trades, alerts, briefs
-  llm.py             Groq / Gemini / template brief writer (Pydantic-validated)
-  notion_publisher.py
-  jobs.py            nightly / premarket / intraday / report orchestration
-  cli.py             swing check | should-run | nightly | premarket | intraday | setup-notion | report | parity
-  data/              nasdaq, alpaca, massive, yf, finnhub, alphavantage, sec, earnings, bars, macro, http
-  agents/            universe, screener, pattern, risk, regime, news, alerts, manage
-  extras/            report (expectancy/SQN), telegram, parity (tradingview-screener), backtest harness
-tests/               synthetic fixtures per pattern, Finviz filter tests, alert/manage/regime tests
-state/               journal.sqlite, notion_ids.json, av_budget.json (committed by the workflows)
+  journal.py         SQLite (local) or Postgres (Neon) journal
+  jobs.py            nightly / premarket / intraday / report
+  cli.py             swing check | should-run | nightly | premarket | intraday | db-init | report | parity
+  ...
+web/                 Next.js App Router dashboard (Vercel)
+db/schema.sql        Postgres schema shared with the web app
+tests/
+state/               av_budget.json; journal.sqlite when DATABASE_URL is unset
 ```
 
 ## Notes from the first live runs

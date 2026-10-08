@@ -1,5 +1,5 @@
-"""Optional Telegram push (free). Enabled when TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are set.
-Used for actionable intraday alerts and a one-message nightly summary; Notion remains the full record."""
+﻿"""Optional Telegram push (free). Enabled when TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are set.
+Used for actionable intraday alerts and a one-message nightly summary; the web dashboard remains the full record."""
 
 from __future__ import annotations
 

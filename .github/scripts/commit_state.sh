@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Commit state/ (SQLite journal, Notion ids, AV budget) back to the repo. Safe under the shared concurrency group.
+# Commit state/ (AV budget, local sqlite when DATABASE_URL is unset) back to the repo.
 set -euo pipefail
 JOB="${1:-job}"
 git config user.name "swing-bot"

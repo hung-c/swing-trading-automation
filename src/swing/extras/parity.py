@@ -1,4 +1,4 @@
-"""Optional parity check: express Scan A server-side with the unofficial `tradingview-screener` package and diff it
+﻿"""Optional parity check: express Scan A server-side with the unofficial `tradingview-screener` package and diff it
 against our locally computed list. Not a source of truth (undocumented API, ToS-grey, 429-prone) - a bug detector.
 
     uv sync --extra extras && uv run swing parity
@@ -44,11 +44,8 @@ def cmd_parity(_args) -> int:
     from swing import journal
 
     tv = tradingview_scan_a()
-    with journal.connect() as con:
-        row = con.execute("SELECT MAX(plan_date) d FROM plans").fetchone()
-        ours = set()
-        if row and row["d"]:
-            ours = {r["symbol"] for r in con.execute("SELECT symbol FROM plans WHERE plan_date=?", (row["d"],)).fetchall()}
+    d = journal.latest_plan_date()
+    ours = {p.symbol for p in journal.plans_for(d)} if d else set()
     print(f"tradingview Scan A: {len(tv)} | our latest plan universe (post-pattern): {len(ours)}")
     print("in TV but not in our plans (expected: most, patterns filter further):", sorted(tv - ours)[:60])
     print("in our plans but not in TV (investigate - filter mismatch?):", sorted(ours - tv))
