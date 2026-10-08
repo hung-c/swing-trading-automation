@@ -256,6 +256,43 @@ def latest_plans(status: str = "watch", path: Path | None = None) -> list[PlanCa
     return plans_for(d, status, path) if d else []
 
 
+def has_strategies(path: Path | None = None) -> bool:
+    with connect(path) as db:
+        r = db.one("SELECT 1 AS n FROM strategies LIMIT 1")
+    return r is not None
+
+
+def active_strategy(path: Path | None = None) -> dict | None:
+    """Most recently updated strategy with status active. The payload is the web rule document."""
+    with connect(path) as db:
+        r = db.one(
+            """SELECT id, name, payload FROM strategies
+               WHERE status = 'active'
+               ORDER BY updated_at DESC
+               LIMIT 1"""
+        )
+    if not r:
+        return None
+    return {"id": str(r["id"]), "name": str(r["name"]), "payload": _json(r["payload"])}
+
+
+def plan_on(plan_date: date, symbol: str, path: Path | None = None) -> PlanCard | None:
+    with connect(path) as db:
+        r = db.one("SELECT payload FROM plans WHERE plan_date=? AND symbol=?", (plan_date.isoformat(), symbol))
+    if not r:
+        return None
+    return PlanCard.model_validate(_json(r["payload"]))
+
+
+def save_plan_payload(plan_date: date, plan: PlanCard, path: Path | None = None) -> None:
+    """Replace the stored card. Used to attach an advisory evaluation without touching size or stops."""
+    with connect(path) as db:
+        db.execute(
+            "UPDATE plans SET payload=? WHERE plan_date=? AND symbol=?",
+            (_json_param(db, plan.model_dump(mode="json")), plan_date.isoformat(), plan.symbol),
+        )
+
+
 def update_plan_status(plan_date: date, symbol: str, status: str, path: Path | None = None) -> None:
     with connect(path) as db:
         r = db.one("SELECT payload FROM plans WHERE plan_date=? AND symbol=?", (plan_date.isoformat(), symbol))

@@ -125,6 +125,17 @@ class WeeklyCheck(BaseModel):
         return self.rising_right and self.above_30w_ma and self.ma30w_rising and self.near_1y_high and self.overhead.clear_sky
 
 
+class TickerEvaluation(BaseModel):
+    """Advisory judgment. Code fills model and prompt_version; the verdict never changes entry, stop, or size."""
+
+    verdict: Literal["take", "watch", "skip"]
+    reasons: list[str] = Field(default_factory=list)
+    open_questions: list[str] = Field(default_factory=list)
+    model: str = "template"
+    prompt_version: str = ""
+    gate: Literal["plan_card", "actionable_alert", "management"] = "plan_card"
+
+
 class PlanCard(BaseModel):
     symbol: str
     pattern: PatternName
@@ -151,6 +162,7 @@ class PlanCard(BaseModel):
     rejected_reason: str | None = None
     notes: list[str] = Field(default_factory=list)
     chart_paths: dict[str, str] = Field(default_factory=dict)
+    evaluations: list[TickerEvaluation] = Field(default_factory=list)
 
     def card_text(self) -> str:
         e = self.earnings

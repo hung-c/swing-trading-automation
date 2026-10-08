@@ -103,6 +103,17 @@ export type Strategy = {
     earnings_decision_days: number;
     exit_failed_breakout: boolean;
   };
+  evaluator: {
+    gates: {
+      plan_card: boolean;
+      actionable_alert: boolean;
+      management: boolean;
+    };
+    direction: string;
+    must_pass: string;
+    disqualify: string;
+    do_not: string;
+  };
 };
 
 export type StrategySectionId = keyof Strategy;
@@ -153,9 +164,17 @@ export const STRATEGY_SECTIONS: { id: StrategySectionId; title: string; summary:
     title: "Management",
     summary: "What happens after the fill: partials, the trail, and the exits.",
   },
+  {
+    id: "evaluator",
+    title: "Evaluator",
+    summary: "When an agent reads a name that already cleared the hard rules, and the written direction it must follow.",
+  },
 ];
 
 const DEFAULT_FLAGS = ["offering", "dilution", "investigation", "bankruptcy", "downgrade", "guidance cut"];
+
+/** Stable id for the desk's swing routine. Seeded into strategies so the page can show and edit it. */
+export const BUILTIN_STRATEGY_ID = "00000000-0000-4000-8000-000000000001";
 
 /** The current swing routine, used as the starting point for a new strategy. */
 export function swingTemplate(): Strategy {
@@ -246,7 +265,22 @@ export function swingTemplate(): Strategy {
       earnings_decision_days: 2,
       exit_failed_breakout: true,
     },
+    evaluator: {
+      gates: { plan_card: true, actionable_alert: false, management: false },
+      direction:
+        "A good name is a tight, orderly base near highs in a clear uptrend, without obvious supply just overhead. Prefer the quality of the base over a story.",
+      must_pass: "The base is orderly. The trend is intact. Nothing in the headlines breaks that picture.",
+      disqualify: "The base is messy or wide. Overhead supply is obvious. A headline contradicts the setup.",
+      do_not: "Do not change the entry, stop, or share count. Do not invent a catalyst or a price. If the evidence is missing, say so.",
+    },
   };
+}
+
+/** The swing routine as a saved strategy: same rules as the template, with a name. */
+export function builtinStrategy(): Strategy {
+  const doc = swingTemplate();
+  doc.profile.name = "Swing routine";
+  return doc;
 }
 
 function num(v: unknown, fallback: number, min: number, max: number): number {
@@ -287,6 +321,11 @@ function clock(v: unknown, fallback: string): string {
   return /^([01]\d|2[0-3]):[0-5]\d$/.test(s) ? s : fallback;
 }
 
+function text(v: unknown, fallback: string, max: number): string {
+  if (typeof v !== "string") return fallback;
+  return v.trim().slice(0, max);
+}
+
 function section<T extends Record<string, unknown>>(v: unknown): T {
   return v && typeof v === "object" ? (v as T) : ({} as T);
 }
@@ -303,6 +342,8 @@ export function normalizeStrategy(input: unknown): { ok: true; strategy: Strateg
   const news = section<Strategy["news"]>(src.news);
   const alerts = section<Strategy["alerts"]>(src.alerts);
   const management = section<Strategy["management"]>(src.management);
+  const evaluator = section<Strategy["evaluator"]>(src.evaluator);
+  const gates = section<Strategy["evaluator"]["gates"]>(evaluator.gates);
 
   const name = String(profile.name ?? "").trim().slice(0, 80);
   if (!name) return { ok: false, error: "Name the strategy before saving." };
@@ -407,6 +448,17 @@ export function normalizeStrategy(input: unknown): { ok: true; strategy: Strateg
       earnings_decision_days: num(management.earnings_decision_days, base.management.earnings_decision_days, 0, 15),
       exit_failed_breakout: flag(management.exit_failed_breakout, true),
     },
+    evaluator: {
+      gates: {
+        plan_card: flag(gates.plan_card, base.evaluator.gates.plan_card),
+        actionable_alert: flag(gates.actionable_alert, base.evaluator.gates.actionable_alert),
+        management: flag(gates.management, base.evaluator.gates.management),
+      },
+      direction: text(evaluator.direction, base.evaluator.direction, 1200),
+      must_pass: text(evaluator.must_pass, base.evaluator.must_pass, 800),
+      disqualify: text(evaluator.disqualify, base.evaluator.disqualify, 800),
+      do_not: text(evaluator.do_not, base.evaluator.do_not, 800),
+    },
   };
 
   return { ok: true, strategy };
@@ -419,5 +471,6 @@ export function gatesOn(s: Strategy): string[] {
   if (s.regime.enabled) on.push("Regime");
   if (s.news.enabled) on.push("News");
   if (s.alerts.enabled) on.push("Alerts");
+  if (s.evaluator.gates.plan_card || s.evaluator.gates.actionable_alert || s.evaluator.gates.management) on.push("Evaluator");
   return on;
 }

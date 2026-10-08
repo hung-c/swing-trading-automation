@@ -44,6 +44,18 @@ export function PlanCard({ plan, price, href }: { plan: Plan; price?: number; hr
       </div>
       {plan.rejected_reason ? <p className="notes">{plan.rejected_reason}</p> : null}
       {plan.notes?.length ? <p className="notes">{plan.notes.join(" · ")}</p> : null}
+      {plan.evaluations?.map((ev) => (
+        <div key={ev.gate} className="eval">
+          <div className="pills">
+            <span className={`chip ${ev.verdict === "take" ? "ok" : ev.verdict === "skip" ? "bad" : "warn"}`}>AI {ev.verdict}</span>
+            <span className="chip">{ev.gate === "plan_card" ? "plan card" : ev.gate === "actionable_alert" ? "alert" : "management"}</span>
+            {ev.prompt_version ? <span className="chip">prompt {ev.prompt_version}</span> : null}
+            {ev.model ? <span className="chip">{ev.model}</span> : null}
+          </div>
+          {ev.reasons?.length ? <p className="notes">{ev.reasons.join(" ")}</p> : null}
+          {ev.open_questions?.length ? <p className="notes">Open: {ev.open_questions.join(" ")}</p> : null}
+        </div>
+      ))}
     </>
   );
   if (href) {

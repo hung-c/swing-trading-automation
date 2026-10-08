@@ -29,7 +29,7 @@ export default async function EditStrategyPage({ params }: { params: Promise<{ i
         <div className="page-head">
           <div>
             <h1>{row.name}</h1>
-            <p className="lede">Edit any section. Saving replaces the stored rule set.</p>
+            <p className="lede">Edit any section. Evaluate reviews the rules without saving them. Saving replaces the stored rule set.</p>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <Link className="btn ghost" href={`/strategies/new?from=${row.id}`}>

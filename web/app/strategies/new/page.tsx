@@ -36,7 +36,7 @@ export default async function NewStrategyPage({
           <div>
             <h1>{from ? "Copy strategy" : "Add strategy"}</h1>
             <p className="lede">
-              Nine sections, in the order the desk works: universe, scanner, technicals, risk, regime, news, alerts, then management.
+              Ten sections, in the order the desk works: universe, scanner, technicals, risk, regime, news, alerts, management, then the evaluator.
             </p>
           </div>
           <Link className="btn ghost" href="/strategies">

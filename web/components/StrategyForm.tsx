@@ -5,6 +5,7 @@ import { useState } from "react";
 import {
   EXCHANGES,
   PATTERN_OPTIONS,
+  BUILTIN_STRATEGY_ID,
   STRATEGY_SECTIONS,
   STRATEGY_STATUSES,
   STRATEGY_STYLES,
@@ -13,6 +14,7 @@ import {
   type Strategy,
   type StrategySectionId,
 } from "@/lib/strategy";
+import type { StrategyReview } from "@/lib/strategy-review";
 
 function Num({
   label,
@@ -68,6 +70,26 @@ function Txt({
   );
 }
 
+function Area({
+  label,
+  hint,
+  value,
+  onChange,
+}: {
+  label: string;
+  hint?: string;
+  value: string;
+  onChange: (s: string) => void;
+}) {
+  return (
+    <label className="span-3">
+      {label}
+      <textarea rows={4} value={value} onChange={(e) => onChange(e.target.value)} />
+      {hint ? <span className="hint">{hint}</span> : null}
+    </label>
+  );
+}
+
 function Check({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
     <label className="checkline">
@@ -78,11 +100,27 @@ function Check({ label, checked, onChange }: { label: string; checked: boolean; 
 }
 
 export function StrategyForm({ initial, id }: { initial: Strategy; id?: string }) {
+  const builtin = id === BUILTIN_STRATEGY_ID;
   const router = useRouter();
   const [doc, setDoc] = useState<Strategy>(initial);
   const [flagsText, setFlagsText] = useState(initial.news.red_flags.join(", "));
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [evaluating, setEvaluating] = useState(false);
+  const [review, setReview] = useState<StrategyReview | null>(null);
+
+  function payload(): Strategy {
+    return {
+      ...doc,
+      news: {
+        ...doc.news,
+        red_flags: flagsText
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean),
+      },
+    };
+  }
 
   function patch<S extends StrategySectionId>(section: S, partial: Partial<Strategy[S]>) {
     setDoc((prev) => ({ ...prev, [section]: { ...prev[section], ...partial } }));
@@ -104,20 +142,10 @@ export function StrategyForm({ initial, id }: { initial: Strategy; id?: string }
     e.preventDefault();
     setBusy(true);
     setErr(null);
-    const payload: Strategy = {
-      ...doc,
-      news: {
-        ...doc.news,
-        red_flags: flagsText
-          .split(",")
-          .map((s) => s.trim())
-          .filter(Boolean),
-      },
-    };
     const res = await fetch(id ? `/api/strategies/${id}` : "/api/strategies", {
       method: id ? "PUT" : "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(payload()),
     });
     const j = await res.json().catch(() => ({}));
     setBusy(false);
@@ -127,6 +155,24 @@ export function StrategyForm({ initial, id }: { initial: Strategy; id?: string }
     }
     router.push("/strategies");
     router.refresh();
+  }
+
+  async function onEvaluate() {
+    setEvaluating(true);
+    setErr(null);
+    const res = await fetch("/api/strategies/evaluate", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload()),
+    });
+    const j = await res.json().catch(() => ({}));
+    setEvaluating(false);
+    if (!res.ok) {
+      setErr(j.error ?? res.statusText);
+      return;
+    }
+    setReview(j as StrategyReview);
+    requestAnimationFrame(() => document.getElementById("review")?.scrollIntoView({ behavior: "smooth", block: "start" }));
   }
 
   async function onDelete() {
@@ -519,20 +565,108 @@ export function StrategyForm({ initial, id }: { initial: Strategy; id?: string }
             </div>
           </section>
 
+          <section className="card sec" id="evaluator">
+            <h2>Evaluator</h2>
+            <p className="notes">{STRATEGY_SECTIONS.find((s) => s.id === "evaluator")?.summary}</p>
+            <div className="fields">
+              <div className="span-3">
+                <div className="kicker">When</div>
+                <p className="notes">
+                  The agent runs only after a name has already cleared the hard rules. Plan card is the nightly judgment.
+                  An actionable alert is the last look before you copy the bracket. Management is the hold-or-out check.
+                  The nightly job uses the active strategy that was updated most recently.
+                </p>
+                <div className="checks">
+                  <Check
+                    label="Plan card"
+                    checked={doc.evaluator.gates.plan_card}
+                    onChange={(v) => patch("evaluator", { gates: { ...doc.evaluator.gates, plan_card: v } })}
+                  />
+                  <Check
+                    label="Actionable alert"
+                    checked={doc.evaluator.gates.actionable_alert}
+                    onChange={(v) => patch("evaluator", { gates: { ...doc.evaluator.gates, actionable_alert: v } })}
+                  />
+                  <Check
+                    label="Management event"
+                    checked={doc.evaluator.gates.management}
+                    onChange={(v) => patch("evaluator", { gates: { ...doc.evaluator.gates, management: v } })}
+                  />
+                </div>
+              </div>
+              <Area
+                label="Direction"
+                hint="What a good name looks like for this strategy."
+                value={doc.evaluator.direction}
+                onChange={(s) => patch("evaluator", { direction: s })}
+              />
+              <Area
+                label="Must pass"
+                hint="Qualitative rules the chart math cannot express."
+                value={doc.evaluator.must_pass}
+                onChange={(s) => patch("evaluator", { must_pass: s })}
+              />
+              <Area
+                label="Disqualify"
+                hint="What makes you pass even when the numbers cleared."
+                value={doc.evaluator.disqualify}
+                onChange={(s) => patch("evaluator", { disqualify: s })}
+              />
+              <Area
+                label="Do not"
+                hint="Limits. The agent must not override the stop or invent a catalyst."
+                value={doc.evaluator.do_not}
+                onChange={(s) => patch("evaluator", { do_not: s })}
+              />
+            </div>
+          </section>
+
+          {review ? (
+            <section className="card sec" id="review">
+              <h2>Evaluation</h2>
+              <p className="notes">
+                Advisory only. This is not saved, and it does not change the rules.
+                {review.provider === "rules" ? " Checked with the rule pass." : ` Checked with the rule pass and ${review.provider}.`}
+              </p>
+              {review.findings.length ? (
+                <ul className="review-list">
+                  {review.findings.map((f, i) => (
+                    <li key={`${f.section}-${i}`}>
+                      <span className={`chip ${f.severity === "conflict" ? "bad" : f.severity === "gap" ? "warn" : ""}`}>
+                        {f.severity}
+                      </span>
+                      <span className="kicker">{f.section}</span>
+                      <span>{f.message}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="notes">No conflicts or gaps in this pass.</p>
+              )}
+            </section>
+          ) : null}
+
           {err ? <p className="notes" style={{ color: "var(--red)" }}>{err}</p> : null}
           <div className="savebar card">
             <div>
-              {id ? (
-                <button className="btn danger" type="button" disabled={busy} onClick={onDelete}>
+              {id && !builtin ? (
+                <button className="btn danger" type="button" disabled={busy || evaluating} onClick={onDelete}>
                   Delete
                 </button>
+              ) : builtin ? (
+                <span className="notes">This is the desk&apos;s swing routine. Edit it here, or duplicate it to start another.</span>
               ) : (
                 <span className="notes">Starts from the current swing routine. Change any section, then save.</span>
               )}
             </div>
-            <button className="btn" type="submit" disabled={busy}>
-              {busy ? "Saving…" : id ? "Save changes" : "Save strategy"}
-            </button>
+            <div className="actions">
+              <button className="btn ghost" type="button" disabled={busy || evaluating} onClick={onEvaluate}>
+                {evaluating ? "Evaluating…" : "Evaluate"}
+              </button>
+              <button className="btn" type="submit" disabled={busy || evaluating}>
+                {busy ? "Saving…" : id ? "Save changes" : "Save strategy"}
+              </button>
+            </div>
           </div>
         </div>
       </div>
