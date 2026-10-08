@@ -15,12 +15,9 @@ on:
         default: false
   schedule:
     - cron: "37 17,18,20,21 * * 1-5"
-  push:
-    branches: [master, main]
-    paths: [".github/workflows/nightly.yml"]
 
 concurrency:
-  group: swing-state
+  group: swing-nightly
   cancel-in-progress: false
 
 permissions:

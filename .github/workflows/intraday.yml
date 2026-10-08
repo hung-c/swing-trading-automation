@@ -10,13 +10,10 @@ on:
         default: false
   schedule:
     - cron: "3,18,33,48 14-20 * * 1-5"
-  push:
-    branches: [master, main]
-    paths: [".github/workflows/intraday.yml"]
 
 concurrency:
-  group: swing-state
-  cancel-in-progress: false
+  group: swing-intraday
+  cancel-in-progress: true
 
 permissions:
   contents: write

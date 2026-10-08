@@ -5,12 +5,9 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "11 21 * * 5"
-  push:
-    branches: [master, main]
-    paths: [".github/workflows/weekly-report.yml"]
 
 concurrency:
-  group: swing-state
+  group: swing-weekly
   cancel-in-progress: false
 
 permissions:
