@@ -26,6 +26,9 @@ def _throttle(min_gap: float = 1.0) -> None:
     if gap < min_gap:
         time.sleep(min_gap - gap)
     _last_call = time.time()
+    from swing.data.usage import note
+
+    note("yfinance")
 
 
 def earnings(symbol: str) -> EarningsInfo | None:

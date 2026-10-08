@@ -59,6 +59,11 @@ def get(
 
     with httpx.Client(timeout=timeout, follow_redirects=True) as c:
         r = c.get(url, params=params, headers=headers or {})
+    from swing.data.usage import note, provider_for_url
+
+    pid = provider_for_url(url)
+    if pid:
+        note(pid)
     if r.status_code == 429 or r.status_code >= 500:
         log.warning("HTTP %s from %s; retrying", r.status_code, url)
         raise RetryableHTTP(f"{r.status_code} {url}")

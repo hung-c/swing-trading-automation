@@ -23,6 +23,9 @@ def _yf_news(symbol: str, limit: int) -> list[NewsItem]:
     try:
         import yfinance as yf
 
+        from swing.data.usage import note
+
+        note("yfinance")
         items = yf.Ticker(symbol).get_news(count=limit) or []
     except Exception as e:  # noqa: BLE001
         log.debug("yf news %s failed: %s", symbol, e)

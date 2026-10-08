@@ -82,9 +82,16 @@ def _pick_model(client, preferred: list[str]) -> str:
 def _openai_compatible(base_url: str, api_key: str, preferred: list[str], facts: dict, max_tokens: int) -> BriefProse:
     from openai import OpenAI
 
+    from swing.data.usage import note, provider_for_url
+
     client = OpenAI(base_url=base_url, api_key=api_key, timeout=60)
+    pid = provider_for_url(base_url)
+    if pid:
+        note(pid)
     model = _pick_model(client, preferred)
     log.info("LLM model: %s", model)
+    if pid:
+        note(pid)
     resp = client.chat.completions.create(
         model=model,
         messages=[{"role": "system", "content": SYSTEM}, {"role": "user", "content": json.dumps(facts, default=str)}],

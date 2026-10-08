@@ -25,6 +25,9 @@ def _api(method: str) -> str:
 def send_text(text: str) -> bool:
     if not available():
         return False
+    from swing.data.usage import note
+
+    note("telegram")
     try:
         r = httpx.post(_api("sendMessage"), data={"chat_id": env("TELEGRAM_CHAT_ID"), "text": text[:4000], "disable_web_page_preview": True}, timeout=20)
         return r.status_code == 200
@@ -36,6 +39,9 @@ def send_text(text: str) -> bool:
 def send_photo(path: str | Path, caption: str = "") -> bool:
     if not available() or not Path(path).exists():
         return False
+    from swing.data.usage import note
+
+    note("telegram")
     try:
         with open(path, "rb") as f:
             r = httpx.post(_api("sendPhoto"), data={"chat_id": env("TELEGRAM_CHAT_ID"), "caption": caption[:1000]}, files={"photo": f}, timeout=60)
