@@ -1,11 +1,9 @@
 ﻿"""Journal: plans, positions, trades, alerts, briefs, charts, kv.
 
-Backend is chosen at connect time:
-  * DATABASE_URL set  -> Postgres (Neon). Shared with the Vercel web app (web/). Schema: db/schema.sql.
-  * otherwise         -> local SQLite at state/journal.sqlite (dev and tests).
-An explicit `path` always means SQLite (used by tests).
+Runtime journal is Neon Postgres (`DATABASE_URL`). Schema: db/schema.sql.
+SQLite is tests-only: pass an explicit `path` (tmp_path). There is no sqlite fallback for jobs.
 
-SQL here is written to run on both: `?` placeholders (translated for Postgres) and ON CONFLICT upserts.
+SQL is written to run on both: `?` placeholders (translated for Postgres) and ON CONFLICT upserts.
 """
 
 from __future__ import annotations
@@ -52,6 +50,17 @@ def database_url() -> str | None:
 
 def backend() -> str:
     return "postgres" if database_url() else "sqlite"
+
+
+def require() -> str:
+    """Jobs and the dashboard share Neon. Fail fast instead of silently writing sqlite."""
+    url = database_url()
+    if not url:
+        raise RuntimeError(
+            "DATABASE_URL is required (Neon). Set it in .env, GitHub Actions secrets, and Vercel. "
+            "SQLite is only used by tests."
+        )
+    return url
 
 
 def db_path() -> Path:
@@ -153,8 +162,13 @@ def migrate_sqlite(con: sqlite3.Connection) -> None:
 
 @contextmanager
 def connect(path: Path | None = None):
-    url = None if path else database_url()
-    if url:
+    if path is not None:
+        con = sqlite3.connect(path)
+        con.row_factory = sqlite3.Row
+        migrate_sqlite(con)
+        db = Db(con, pg=False)
+    else:
+        url = require()
         import psycopg
         from psycopg.rows import dict_row
 
@@ -162,11 +176,6 @@ def connect(path: Path | None = None):
             init_postgres(url)
         con = psycopg.connect(url, row_factory=dict_row)
         db = Db(con, pg=True)
-    else:
-        con = sqlite3.connect(path or db_path())
-        con.row_factory = sqlite3.Row
-        migrate_sqlite(con)
-        db = Db(con, pg=False)
     try:
         yield db
         con.commit()
@@ -192,6 +201,16 @@ def _dumps(obj) -> str:
     return json.dumps(obj, default=str)
 
 
+def _json_param(db: Db, obj):
+    """JSONB wants an object on Postgres; SQLite stores TEXT."""
+    data = json.loads(obj) if isinstance(obj, (str, bytes)) else obj
+    if db.pg:
+        from psycopg.types.json import Jsonb
+
+        return Jsonb(data)
+    return json.dumps(data, default=str)
+
+
 # ---------- plans ----------
 def save_plans(plan_date: date, plans: list[PlanCard], path: Path | None = None) -> None:
     with connect(path) as db:
@@ -208,7 +227,7 @@ def save_plans(plan_date: date, plans: list[PlanCard], path: Path | None = None)
                     plan_date.isoformat(), p.symbol, p.pattern, p.resistance, p.entry, p.stop, p.shares, p.target_2r,
                     p.status, p.pattern_quality, p.trend_score, p.sector,
                     p.earnings.date.isoformat() if p.earnings and p.earnings.date else None,
-                    p.model_dump_json(),
+                    _json_param(db, p.model_dump(mode="json")),
                 ),
             )
 
@@ -243,7 +262,7 @@ def update_plan_status(plan_date: date, symbol: str, status: str, path: Path | N
         p.status = status
         db.execute(
             "UPDATE plans SET status=?, payload=? WHERE plan_date=? AND symbol=?",
-            (status, p.model_dump_json(), plan_date.isoformat(), symbol),
+            (status, _json_param(db, p.model_dump(mode="json")), plan_date.isoformat(), symbol),
         )
 
 
@@ -325,7 +344,7 @@ def save_brief(brief_date: date, kind: str, payload: dict, path: Path | None = N
         db.execute(
             """INSERT INTO briefs (brief_date, kind, payload, created_at) VALUES (?,?,?,?)
                ON CONFLICT (brief_date, kind) DO UPDATE SET payload=excluded.payload, created_at=excluded.created_at""",
-            (brief_date.isoformat(), kind, _dumps(payload), datetime.now(UTC).isoformat()),
+            (brief_date.isoformat(), kind, _json_param(db, payload), datetime.now(UTC).isoformat()),
         )
 
 
@@ -340,7 +359,7 @@ def kv_set(k: str, v, path: Path | None = None) -> None:
         db.execute(
             """INSERT INTO kv (k, v, updated_at) VALUES (?,?,?)
                ON CONFLICT (k) DO UPDATE SET v=excluded.v, updated_at=excluded.updated_at""",
-            (k, _dumps(v), datetime.now(UTC).isoformat()),
+            (k, _json_param(db, v), datetime.now(UTC).isoformat()),
         )
 
 
@@ -378,6 +397,84 @@ def latest_brief(kind: str | None = None, path: Path | None = None) -> dict | No
         else:
             r = db.one("SELECT payload FROM briefs ORDER BY brief_date DESC, created_at DESC LIMIT 1")
     return _json(r["payload"]) if r else None
+
+
+def push_sqlite(src: Path | None = None) -> dict[str, int]:
+    """Copy a local sqlite journal into the current DATABASE_URL (Neon)."""
+    if not database_url():
+        raise RuntimeError("DATABASE_URL is not set — Neon is the destination")
+    src = src or db_path()
+    if not src.exists():
+        raise FileNotFoundError(src)
+    from collections import defaultdict
+
+    scon = sqlite3.connect(src)
+    scon.row_factory = sqlite3.Row
+    counts: dict[str, int] = {}
+
+    by_date: dict[str, list[PlanCard]] = defaultdict(list)
+    for r in scon.execute("SELECT plan_date, payload FROM plans"):
+        by_date[str(r["plan_date"])[:10]].append(PlanCard.model_validate(_json(r["payload"])))
+    for d, plans in by_date.items():
+        save_plans(date.fromisoformat(d), plans)
+    counts["plans"] = sum(len(v) for v in by_date.values())
+
+    n = 0
+    for r in scon.execute("SELECT brief_date, kind, payload FROM briefs"):
+        save_brief(date.fromisoformat(str(r["brief_date"])[:10]), r["kind"], _json(r["payload"]))
+        n += 1
+    counts["briefs"] = n
+
+    n = 0
+    try:
+        for r in scon.execute("SELECT day, symbol, kind, png FROM charts"):
+            save_chart(str(r["day"])[:10], r["symbol"], r["kind"], bytes(r["png"]))
+            n += 1
+    except sqlite3.Error:
+        pass
+    counts["charts"] = n
+
+    n = 0
+    for r in scon.execute("SELECT k, v FROM kv"):
+        kv_set(r["k"], _json(r["v"]))
+        n += 1
+    counts["kv"] = n
+
+    n = 0
+    try:
+        for r in scon.execute("SELECT * FROM positions"):
+            upsert_position(_position(dict(r)))
+            n += 1
+    except sqlite3.Error:
+        pass
+    counts["positions"] = n
+
+    n = 0
+    try:
+        for r in scon.execute("SELECT ts, symbol, condition, price, rvol, vwap, actionable, message FROM alerts"):
+            ts = r["ts"]
+            if isinstance(ts, str):
+                ts = datetime.fromisoformat(ts)
+            save_alerts(
+                [
+                    Alert(
+                        ts=ts,
+                        symbol=r["symbol"],
+                        condition=r["condition"],
+                        price=float(r["price"] or 0),
+                        rvol=r["rvol"],
+                        vwap=r["vwap"],
+                        actionable=bool(r["actionable"]),
+                        message=r["message"] or "",
+                    )
+                ]
+            )
+            n += 1
+    except sqlite3.Error:
+        pass
+    counts["alerts"] = n
+    scon.close()
+    return counts
 
 
 def prune(keep_days: int = 21, path: Path | None = None) -> None:

@@ -1,4 +1,4 @@
-﻿"""Job orchestration: nightly (16:35 ET), premarket (07:00 ET), intraday (every 15 min 10:00-15:45 ET), report.
+"""Job orchestration: nightly (16:35 ET), premarket (07:00 ET), intraday (every 15 min 10:00-15:45 ET), report.
 
 Each job is a plain sequence of agent calls passing Pydantic models. Every job exits early on non-trading days
 unless --force. --dry-run writes nothing to the journal/DB and sends no push (local markdown only).
@@ -34,6 +34,10 @@ def _guard(force: bool) -> bool:
         return True
     log.info("not a trading day (%s); exiting", today_et())
     return False
+
+
+def _require_neon() -> None:
+    journal.require()
 
 
 def _publish(brief: DailyBrief, dry_run: bool) -> None:
@@ -86,10 +90,11 @@ def _write_local(brief: DailyBrief) -> None:
 def run_nightly(args) -> int:
     if not _guard(args.force):
         return 0
+    _require_neon()
     cfg = load_config()
     ensure_dirs(cfg)
     session = last_completed_session() if not args.force else today_et()
-    log.info("nightly for session %s", session)
+    log.info("nightly for session %s journal=%s dry_run=%s", session, journal.backend(), args.dry_run)
 
     uni = universe.build(limit=args.limit)
     meta = universe.meta_by_symbol(uni)
@@ -155,6 +160,7 @@ def run_nightly(args) -> int:
 def run_premarket(args) -> int:
     if not _guard(args.force):
         return 0
+    _require_neon()
     cfg = load_config()
     ensure_dirs(cfg)
     today = today_et()
@@ -185,6 +191,7 @@ def run_intraday(args) -> int:
     if not args.force and not in_session_window(it.session_start, it.session_end, now):
         log.info("outside %s-%s ET session window or non-trading day; exiting", it.session_start, it.session_end)
         return 0
+    _require_neon()
     ensure_dirs(cfg)
     plans = journal.latest_plans("watch")
     positions = journal.open_positions()
@@ -234,6 +241,7 @@ def run_intraday(args) -> int:
 def run_report(args) -> int:
     from swing.extras.report import build_report
 
+    _require_neon()
     cfg = load_config()
     text = build_report(cfg)
     print(text)

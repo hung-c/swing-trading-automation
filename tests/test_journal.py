@@ -15,6 +15,15 @@ def test_brief_and_chart_roundtrip(tmp_path):
     assert journal.load_chart("2026-10-07", "AAPL", "weekly", path=db) is None
 
 
+def test_connect_without_path_requires_database_url(monkeypatch):
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    try:
+        journal.require()
+        raise AssertionError("expected RuntimeError")
+    except RuntimeError as e:
+        assert "DATABASE_URL" in str(e)
+
+
 def test_migrates_notion_era_alerts_table(tmp_path):
     import sqlite3
 

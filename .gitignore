@@ -19,7 +19,8 @@ cache/
 *.png
 !docs/**/*.png
 
-# SQLite journal is committed on purpose (state/journal.sqlite); ignore WAL side files
+# Journal lives in Neon. Never commit sqlite leftovers.
+state/*.sqlite
 state/*.sqlite-wal
 state/*.sqlite-shm
 
