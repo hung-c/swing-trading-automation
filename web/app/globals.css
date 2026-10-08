@@ -137,6 +137,13 @@ input, select {
 .empty { padding: 48px 20px; text-align: center; color: var(--muted); }
 .empty h2 { color: var(--text); margin-bottom: 8px; }
 .warn-list { color: var(--amber); font-size: 13px; }
+.api-group { color: var(--muted); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; background: var(--bg-2); }
+.table-scroll { overflow-x: auto; }
+.th-sub { display: block; margin-top: 3px; color: var(--faint); font-size: 10px; letter-spacing: 0; text-transform: none; }
+.meter { height: 6px; margin-top: 6px; border-radius: 99px; background: var(--bg); overflow: hidden; }
+.meter > span { display: block; height: 100%; background: var(--green); }
+.meter.warn > span { background: var(--amber); }
+.meter.hot > span { background: var(--red); }
 .login {
   min-height: 100vh; display: grid; place-items: center;
 }
