@@ -78,6 +78,16 @@ CREATE TABLE IF NOT EXISTS kv (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- User-defined strategy documents. The payload is the nine-section rule set (see web/lib/strategy.ts).
+CREATE TABLE IF NOT EXISTS strategies (
+  id         TEXT PRIMARY KEY,
+  name       TEXT NOT NULL,
+  status     TEXT NOT NULL DEFAULT 'draft',
+  payload    JSONB NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 -- Chart PNGs live in the database (a few MB per night; pruned after 21 days) so no blob store is needed.
 CREATE TABLE IF NOT EXISTS charts (
   day    DATE NOT NULL,

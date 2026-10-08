@@ -2,6 +2,7 @@ import Link from "next/link";
 
 const TABS = [
   ["/", "Today"],
+  ["/strategies", "Strategies"],
   ["/plans", "Plans"],
   ["/positions", "Positions"],
   ["/alerts", "Alerts"],

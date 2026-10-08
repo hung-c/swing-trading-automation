@@ -150,11 +150,45 @@ input, select {
 .login .card { width: min(380px, 92vw); display: grid; gap: 12px; }
 .login h1 { margin: 0; font-size: 22px; }
 
+.strategy-grid { display: grid; grid-template-columns: 168px 1fr; gap: 22px; align-items: start; }
+.side-nav { position: sticky; top: 64px; display: grid; gap: 2px; }
+.side-nav a {
+  color: var(--muted); font-size: 13px; padding: 6px 10px; border-radius: 8px;
+}
+.side-nav a:hover { color: var(--text); background: var(--card-2); }
+.strategy-main { display: grid; gap: 14px; min-width: 0; }
+.sec { scroll-margin-top: 72px; }
+.sec h2 { margin: 0 0 4px; font-size: 18px; }
+.sec > .notes { margin-bottom: 14px; }
+.fields { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.fields label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+.fields .span-2 { grid-column: span 2; }
+.fields .span-3 { grid-column: 1 / -1; }
+.hint { color: var(--faint); font-size: 11px; }
+.kicker { color: var(--faint); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
+.checks { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.checkline {
+  flex-direction: row; align-items: center; gap: 8px;
+  color: var(--text); font-size: 14px; width: auto;
+}
+.checkline input { width: 16px; height: 16px; accent-color: var(--green); }
+.savebar {
+  position: sticky; bottom: 12px;
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  background: rgba(22, 29, 38, 0.94);
+}
+select { background: var(--bg); }
+
 @media (max-width: 900px) {
   .grid-4, .grid-3, .levels, .form { grid-template-columns: repeat(2, 1fr); }
+  .strategy-grid { grid-template-columns: 1fr; }
+  .side-nav { position: static; grid-auto-flow: column; overflow-x: auto; }
+  .fields { grid-template-columns: repeat(2, 1fr); }
+  .fields .span-2 { grid-column: 1 / -1; }
 }
 @media (max-width: 640px) {
-  .grid-4, .grid-3, .grid-2, .levels, .form { grid-template-columns: 1fr; }
+  .grid-4, .grid-3, .grid-2, .levels, .form, .fields { grid-template-columns: 1fr; }
   .page-head { flex-direction: column; }
   .nav-inner { flex-wrap: wrap; }
+  .savebar { flex-direction: column; align-items: stretch; }
 }
