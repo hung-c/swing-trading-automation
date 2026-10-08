@@ -109,6 +109,48 @@ def init_postgres(url: str) -> None:
     _PG_READY.add(url)
 
 
+def _sqlite_cols(con: sqlite3.Connection, table: str) -> set[str]:
+    return {r[1] for r in con.execute(f"PRAGMA table_info({table})").fetchall()}
+
+
+def migrate_sqlite(con: sqlite3.Connection) -> None:
+    """CREATE IF NOT EXISTS cannot add columns; rebuild leftover tables from the Notion-era sqlite file."""
+    con.executescript(SQLITE_SCHEMA)
+    if "day" not in _sqlite_cols(con, "alerts"):
+        con.execute("ALTER TABLE alerts RENAME TO alerts_old")
+        con.execute(
+            """CREATE TABLE alerts (
+              day TEXT NOT NULL, ts TEXT NOT NULL, symbol TEXT NOT NULL, condition TEXT NOT NULL,
+              price REAL, rvol REAL, vwap REAL, actionable INTEGER, message TEXT,
+              PRIMARY KEY (day, symbol, condition))"""
+        )
+        con.execute(
+            """INSERT OR IGNORE INTO alerts (day, ts, symbol, condition, price, rvol, vwap, actionable, message)
+               SELECT substr(ts, 1, 10), ts, symbol, condition, price, rvol, vwap, actionable, message FROM alerts_old"""
+        )
+        con.execute("DROP TABLE alerts_old")
+        log.info("sqlite: migrated alerts (added day)")
+    if "created_at" not in _sqlite_cols(con, "briefs"):
+        con.execute("ALTER TABLE briefs RENAME TO briefs_old")
+        con.execute(
+            """CREATE TABLE briefs (
+              brief_date TEXT NOT NULL, kind TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT,
+              PRIMARY KEY (brief_date, kind))"""
+        )
+        con.execute(
+            """INSERT OR IGNORE INTO briefs (brief_date, kind, payload, created_at)
+               SELECT brief_date, kind, COALESCE(payload, '{}'), NULL FROM briefs_old"""
+        )
+        con.execute("DROP TABLE briefs_old")
+        log.info("sqlite: migrated briefs (added created_at)")
+    if "updated_at" not in _sqlite_cols(con, "kv"):
+        con.execute("ALTER TABLE kv RENAME TO kv_old")
+        con.execute("CREATE TABLE kv (k TEXT PRIMARY KEY, v TEXT NOT NULL, updated_at TEXT)")
+        con.execute("INSERT OR IGNORE INTO kv (k, v, updated_at) SELECT k, v, NULL FROM kv_old")
+        con.execute("DROP TABLE kv_old")
+        log.info("sqlite: migrated kv (added updated_at)")
+
+
 @contextmanager
 def connect(path: Path | None = None):
     url = None if path else database_url()
@@ -123,7 +165,7 @@ def connect(path: Path | None = None):
     else:
         con = sqlite3.connect(path or db_path())
         con.row_factory = sqlite3.Row
-        con.executescript(SQLITE_SCHEMA)
+        migrate_sqlite(con)
         db = Db(con, pg=False)
     try:
         yield db
