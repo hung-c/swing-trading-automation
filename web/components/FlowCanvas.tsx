@@ -171,13 +171,11 @@ export function FlowCanvas() {
     setView(next);
   }
 
-  function onPointerUp(e: ReactPointerEvent<HTMLDivElement>) {
-    const d = drag.current;
+  function onPointerUp() {
     drag.current = null;
-    if (!d || d.moved) return;
-    const node = (e.target as HTMLElement).closest("[data-node]");
-    const id = node?.getAttribute("data-node") ?? null;
-    if (!id) return;
+  }
+
+  function selectNode(id: string) {
     setSelectedId((cur) => (cur === id ? null : id));
   }
 
@@ -257,6 +255,8 @@ export function FlowCanvas() {
               data-node={node.id}
               className={`flow-node${node.step ? "" : " head"} status-${node.status}${selectedId === node.id ? " on" : ""}`}
               style={{ left: node.x, top: node.y, width: node.w, height: node.h }}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={() => selectNode(node.id)}
             >
               {node.hint ? <span className="flow-when">{node.hint}</span> : null}
               <span className="flow-title">{node.title}</span>
@@ -322,15 +322,30 @@ function chipClass(status: BlockStatus): string {
   return "";
 }
 
+function when(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString("en-US", {
+    timeZone: "America/New_York",
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 function RunDetail({ run, compact = false }: { run: FlowRun; compact?: boolean }) {
   const line = summaryText(run.summary);
   return (
     <div className={compact ? "flow-detail compact" : "flow-detail"}>
-      <div className="flow-times">
-        <span>{statusWord(run.status)}</span>
-        <span>{etTime(run.startedAt)}</span>
-        <span>{duration(run)}</span>
-      </div>
+      <dl className="flow-facts">
+        <div><dt>Status</dt><dd>{statusWord(run.status)}</dd></div>
+        <div><dt>Started</dt><dd>{when(run.startedAt)} ET</dd></div>
+        <div><dt>Finished</dt><dd>{run.finishedAt ? `${when(run.finishedAt)} ET` : "Still running"}</dd></div>
+        <div><dt>Duration</dt><dd>{duration(run)}</dd></div>
+      </dl>
       {line ? <p className="notes">{line}</p> : null}
       {run.fallback ? <p className="notes">Taken from the last published brief.</p> : null}
       {run.error ? <pre className="flow-error">{run.error}</pre> : null}
