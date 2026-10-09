@@ -2,7 +2,7 @@ import json
 from datetime import date, datetime
 
 from swing import evaluate, journal
-from swing.models import Alert, ManageAction, PlanCard, RegimeReport, TickerNews, NewsItem
+from swing.models import Alert, ManageAction, NewsItem, PlanCard, RegimeReport, TickerNews
 
 
 def _plan(**kwargs) -> PlanCard:
