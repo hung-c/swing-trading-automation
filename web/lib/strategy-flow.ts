@@ -25,10 +25,20 @@ export type BlockId = (typeof BLOCK_IDS)[number];
 export type StrategyNode = { id: BlockId; x: number; y: number };
 export type StrategyLink = { from: BlockId; to: BlockId };
 
+export type ClockSchedule = { enabled: boolean; start: string; end?: string };
+
 export type StrategyFlow = {
   nodes: StrategyNode[];
   links: StrategyLink[];
-  clocks: Record<FlowClock, { enabled: boolean }>;
+  clocks: Record<FlowClock, ClockSchedule>;
+};
+
+/** Defaults the PC tick uses when a saved strategy has no start time. Keep in sync with src/swing/tick.py. */
+export const CLOCK_DEFAULTS: Record<FlowClock, { start: string; end?: string }> = {
+  nightly: { start: "16:37" },
+  premarket: { start: "07:03" },
+  intraday: { start: "10:00", end: "15:50" },
+  report: { start: "17:11" },
 };
 
 export const NODE_W = 188;
@@ -80,6 +90,12 @@ export function isBlockId(id: string): id is BlockId {
   return BLOCK_SET.has(id);
 }
 
+export function clockWhen(clock: FlowClock, row: { start: string; end?: string }): string {
+  if (clock === "intraday") return `Every 15 min, ${row.start}-${row.end ?? CLOCK_DEFAULTS.intraday.end} ET`;
+  if (clock === "report") return `Fri ${row.start} ET`;
+  return `${row.start} ET`;
+}
+
 export function clockOf(id: BlockId): FlowClock | null {
   if (!id.startsWith("clock:")) return null;
   const clock = id.slice("clock:".length);
@@ -129,10 +145,10 @@ export function defaultFlow(): StrategyFlow {
     nodes: DEFAULT_NODES.map((n) => ({ ...n })),
     links: DEFAULT_LINKS.map((l) => ({ ...l })),
     clocks: {
-      nightly: { enabled: true },
-      premarket: { enabled: true },
-      intraday: { enabled: true },
-      report: { enabled: false },
+      nightly: { enabled: true, start: CLOCK_DEFAULTS.nightly.start },
+      premarket: { enabled: true, start: CLOCK_DEFAULTS.premarket.start },
+      intraday: { enabled: true, start: CLOCK_DEFAULTS.intraday.start, end: CLOCK_DEFAULTS.intraday.end },
+      report: { enabled: false, start: CLOCK_DEFAULTS.report.start },
     },
   };
 }
@@ -141,6 +157,11 @@ function finite(v: unknown): number | null {
   const n = typeof v === "number" ? v : typeof v === "string" && v.trim() !== "" ? Number(v) : NaN;
   if (!Number.isFinite(n)) return null;
   return Math.min(4000, Math.max(0, n));
+}
+
+function clockTime(v: unknown, fallback: string): string {
+  const s = String(v ?? "").trim();
+  return /^([01]\d|2[0-3]):[0-5]\d$/.test(s) ? s : fallback;
 }
 
 function linkKey(from: BlockId, to: BlockId): string {
@@ -181,8 +202,14 @@ export function normalizeFlow(input: unknown): StrategyFlow {
   const rawClocks = src.clocks && typeof src.clocks === "object" ? (src.clocks as Record<string, unknown>) : {};
   for (const clock of FLOW_CLOCKS) {
     const row = rawClocks[clock];
-    const enabled = row && typeof row === "object" ? (row as { enabled?: unknown }).enabled : undefined;
-    if (typeof enabled === "boolean") clocks[clock] = { enabled };
+    const obj = row && typeof row === "object" ? (row as { enabled?: unknown; start?: unknown; end?: unknown }) : {};
+    const enabled = typeof obj.enabled === "boolean" ? obj.enabled : base.clocks[clock].enabled;
+    const start = clockTime(obj.start, base.clocks[clock].start);
+    if (clock === "intraday") {
+      clocks[clock] = { enabled, start, end: clockTime(obj.end, base.clocks.intraday.end ?? "15:50") };
+    } else {
+      clocks[clock] = { enabled, start };
+    }
   }
   return {
     nodes: BLOCK_IDS.map((id) => placed.get(id) ?? base.nodes.find((n) => n.id === id)!),

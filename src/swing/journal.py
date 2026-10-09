@@ -280,6 +280,22 @@ def active_strategy(path: Path | None = None) -> dict | None:
     return {"id": str(r["id"]), "name": str(r["name"]), "payload": _json(r["payload"])}
 
 
+def list_strategies(path: Path | None = None, status: str | None = None) -> list[dict]:
+    """Saved strategy documents. ``status`` limits the rows (active, draft, paused)."""
+    with connect(path) as db:
+        if status:
+            rows = db.all(
+                "SELECT id, name, status, payload FROM strategies WHERE status=? ORDER BY updated_at DESC",
+                (status,),
+            )
+        else:
+            rows = db.all("SELECT id, name, status, payload FROM strategies ORDER BY updated_at DESC")
+    return [
+        {"id": str(r["id"]), "name": str(r["name"]), "status": str(r["status"]), "payload": _json(r["payload"])}
+        for r in rows
+    ]
+
+
 def plan_on(plan_date: date, symbol: str, path: Path | None = None) -> PlanCard | None:
     with connect(path) as db:
         r = db.one("SELECT payload FROM plans WHERE plan_date=? AND symbol=?", (plan_date.isoformat(), symbol))
