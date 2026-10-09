@@ -9,14 +9,10 @@ from __future__ import annotations
 import json
 import logging
 
-from typing import TypeVar
-
 from pydantic import BaseModel, ValidationError
 
 from swing.config import Cfg, env, load_config
 from swing.models import BriefProse, DailyBrief
-
-T = TypeVar("T", bound=BaseModel)
 
 log = logging.getLogger(__name__)
 
@@ -118,7 +114,7 @@ def _openai_compatible(base_url: str, api_key: str, preferred: list[str], facts:
     return BriefProse.model_validate(data)
 
 
-def judge(system: str, facts: dict, model: type[T], cfg: Cfg | None = None) -> tuple[T, str] | None:
+def judge[T: BaseModel](system: str, facts: dict, model: type[T], cfg: Cfg | None = None) -> tuple[T, str] | None:
     """Groq, then Gemini. None when no provider returns valid JSON. Does not use the brief template."""
     cfg = cfg or load_config()
     for provider in cfg.llm.provider_order:

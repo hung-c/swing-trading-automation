@@ -88,11 +88,12 @@ class JobRun:
             yield box
         except Exception as e:
             self.failed = True
-            self._error = str(e)
+            error = str(e)
+            self._error = error
             sid = self._step_id
             self._step_id = None
             if sid is not None:
-                self._quiet(lambda: journal.finish_step(sid, "failed", summary=box.summary, error=str(e), path=self.path))
+                self._quiet(lambda: journal.finish_step(sid, "failed", summary=box.summary, error=error, path=self.path))
             raise
         else:
             sid = self._step_id
