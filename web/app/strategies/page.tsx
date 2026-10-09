@@ -23,8 +23,7 @@ export default async function StrategiesPage() {
           <div>
             <h1>Strategies</h1>
             <p className="lede">
-              A strategy is one complete rule set: who you trade, how you find them, how you size, and how you get out.
-              Add as many as you want and edit any section later.
+              A strategy is a job chart. Open one to connect the blocks and set up each step: who you trade, when the job runs, and how you get out.
             </p>
           </div>
           <Link className="btn" href="/strategies/new">
