@@ -372,7 +372,8 @@ def run_intraday(args) -> int:
         cfg = load_config()
         it = cfg.intraday
         now = now_et()
-        if not args.force and not in_session_window(it.session_start, it.session_end, now):
+        # from_tick: the 15-minute tick already decided this run is inside the strategy window.
+        if not args.force and not getattr(args, "from_tick", False) and not in_session_window(it.session_start, it.session_end, now):
             log.info("outside %s-%s ET session window or non-trading day; exiting", it.session_start, it.session_end)
             reason = {"reason": "outside session window"}
             with run.step("session") as st:
