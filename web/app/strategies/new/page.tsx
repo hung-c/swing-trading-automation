@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Nav, Setup } from "@/components/Nav";
 import { StrategyForm } from "@/components/StrategyForm";
 import { swingTemplate, type Strategy } from "@/lib/strategy";
@@ -29,22 +28,15 @@ export default async function NewStrategyPage({
   }
 
   return (
-    <>
+    <div className="flow-screen">
       <Nav active="/strategies" />
-      <main className="shell">
-        <div className="page-head">
-          <div>
-            <h1>{from ? "Copy strategy" : "Add strategy"}</h1>
-            <p className="lede">
-              Ten sections, in the order the desk works: universe, scanner, technicals, risk, regime, news, alerts, management, then the evaluator.
-            </p>
-          </div>
-          <Link className="btn ghost" href="/strategies">
-            Back
-          </Link>
-        </div>
-        {!configured ? <Setup /> : <StrategyForm initial={initial} />}
-      </main>
-    </>
+      {!configured ? (
+        <main className="shell">
+          <Setup />
+        </main>
+      ) : (
+        <StrategyForm initial={initial} />
+      )}
+    </div>
   );
 }
