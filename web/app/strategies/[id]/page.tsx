@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Nav, Setup } from "@/components/Nav";
 import { StrategyForm } from "@/components/StrategyForm";
@@ -23,25 +22,9 @@ export default async function EditStrategyPage({ params }: { params: Promise<{ i
   if (!row) notFound();
 
   return (
-    <>
+    <div className="flow-screen">
       <Nav active="/strategies" />
-      <main className="shell">
-        <div className="page-head">
-          <div>
-            <h1>{row.name}</h1>
-            <p className="lede">Edit any section. Evaluate reviews the rules without saving them. Saving replaces the stored rule set.</p>
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <Link className="btn ghost" href={`/strategies/new?from=${row.id}`}>
-              Duplicate
-            </Link>
-            <Link className="btn ghost" href="/strategies">
-              Back
-            </Link>
-          </div>
-        </div>
-        <StrategyForm initial={row.strategy} id={row.id} />
-      </main>
-    </>
+      <StrategyForm initial={row.strategy} id={row.id} />
+    </div>
   );
 }

@@ -369,6 +369,88 @@ select { background: var(--bg); }
   padding: 8px 10px;
 }
 
+.strategy-bar { align-items: center; flex-wrap: wrap; }
+.strategy-bar h1 { font-size: 20px; }
+.strategy-bar .actions { flex-wrap: wrap; justify-content: flex-end; }
+.strategy-err { margin: 0 20px 8px; color: var(--red); }
+.strategy-review { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 20px 8px; }
+.strategy-review button.chip {
+  border: 1px solid var(--line);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  max-width: 100%;
+}
+.sblock {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 1px;
+  text-align: left;
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 8px 16px;
+  cursor: grab;
+  user-select: none;
+}
+.sblock.clock { background: var(--card-2); }
+.sblock.off { opacity: 0.48; }
+.sblock.on { outline: 2px solid var(--text); outline-offset: 2px; }
+.sblock .flow-when {
+  color: var(--faint);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.sblock .flow-title { font-weight: 600; font-size: 14px; }
+.sblock .flow-sub { color: var(--muted); font-size: 12px; }
+.sblock .port {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid var(--blue);
+  background: var(--bg);
+  transform: translateY(-50%);
+  cursor: crosshair;
+}
+.sblock .port.in { top: -8px; left: 50%; transform: translateX(-50%); }
+.sblock .port.out { top: auto; bottom: -8px; left: 50%; transform: translateX(-50%); }
+@media (min-width: 1100px) {
+  .flow-page:has(.strategy-setup) .flow-stage { margin-right: 476px; }
+}
+.flow-stage.wiring, .flow-stage.wiring .sblock { cursor: crosshair; }
+form.flow-page .flow-tools {
+  top: 12px;
+  right: 16px;
+  bottom: auto;
+  left: auto;
+  padding: 4px;
+  border-radius: 10px;
+  background: rgba(12, 16, 20, 0.8);
+}
+.flow-edges path.sedge-line { fill: none; stroke: #5d6d82; stroke-width: 1.5; pointer-events: none; }
+.flow-edges path.sedge-line.live { stroke: var(--blue); }
+.flow-edges path.sedge {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 14;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+.flow-edges path.sedge.on { stroke: rgba(108, 182, 255, 0.45); }
+.strategy-setup { width: min(460px, calc(100vw - 24px)); top: 132px; }
+.strategy-setup .fields { grid-template-columns: 1fr 1fr; }
+.strategy-setup .fields .span-2,
+.strategy-setup .fields .span-3 { grid-column: 1 / -1; }
+
 @media (max-width: 900px) {
   .grid-4, .grid-3, .levels, .form { grid-template-columns: repeat(2, 1fr); }
   .strategy-grid { grid-template-columns: 1fr; }

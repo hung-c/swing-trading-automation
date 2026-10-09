@@ -63,6 +63,11 @@ function asNotes(raw: string): ReviewFinding[] {
   return out.slice(0, 6);
 }
 
+function rulesOnly(strategy: Strategy): Omit<Strategy, "flow"> {
+  const { flow: _flow, ...rules } = strategy;
+  return rules;
+}
+
 async function chat(url: string, apiKey: string, model: string, strategy: Strategy): Promise<ReviewFinding[]> {
   const res = await fetch(url, {
     method: "POST",
@@ -74,7 +79,7 @@ async function chat(url: string, apiKey: string, model: string, strategy: Strate
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: SYSTEM },
-        { role: "user", content: JSON.stringify(strategy) },
+        { role: "user", content: JSON.stringify(rulesOnly(strategy)) },
       ],
     }),
     signal: AbortSignal.timeout(25_000),

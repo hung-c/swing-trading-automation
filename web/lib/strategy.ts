@@ -1,4 +1,6 @@
-/** A strategy is the rule set for one way of trading. Sections follow the nightly pipeline. */
+import { defaultFlow, normalizeFlow, type StrategyFlow } from "./strategy-flow";
+
+/** A strategy is one way of trading: a job graph, and the rules on each block. */
 
 export const STRATEGY_STYLES = ["breakout", "pullback", "hybrid"] as const;
 export const STRATEGY_STATUSES = ["draft", "active", "paused"] as const;
@@ -114,9 +116,10 @@ export type Strategy = {
     disqualify: string;
     do_not: string;
   };
+  flow: StrategyFlow;
 };
 
-export type StrategySectionId = keyof Strategy;
+export type StrategySectionId = Exclude<keyof Strategy, "flow">;
 
 export const STRATEGY_SECTIONS: { id: StrategySectionId; title: string; summary: string }[] = [
   {
@@ -273,6 +276,7 @@ export function swingTemplate(): Strategy {
       disqualify: "The base is messy or wide. Overhead supply is obvious. A headline contradicts the setup.",
       do_not: "Do not change the entry, stop, or share count. Do not invent a catalyst or a price. If the evidence is missing, say so.",
     },
+    flow: defaultFlow(),
   };
 }
 
@@ -332,6 +336,7 @@ function section<T extends Record<string, unknown>>(v: unknown): T {
 
 export function normalizeStrategy(input: unknown): { ok: true; strategy: Strategy } | { ok: false; error: string } {
   const base = swingTemplate();
+  const raw = input && typeof input === "object" ? (input as { flow?: unknown }) : {};
   const src = section<Partial<Record<StrategySectionId, unknown>>>(input);
   const profile = section<Strategy["profile"]>(src.profile);
   const universe = section<Strategy["universe"]>(src.universe);
@@ -459,6 +464,7 @@ export function normalizeStrategy(input: unknown): { ok: true; strategy: Strateg
       disqualify: text(evaluator.disqualify, base.evaluator.disqualify, 800),
       do_not: text(evaluator.do_not, base.evaluator.do_not, 800),
     },
+    flow: normalizeFlow(raw.flow),
   };
 
   return { ok: true, strategy };

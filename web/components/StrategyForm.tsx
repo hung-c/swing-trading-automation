@@ -1,103 +1,27 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { BlockSetup } from "@/components/BlockSetup";
+import { StrategyCanvas } from "@/components/StrategyCanvas";
 import {
-  EXCHANGES,
-  PATTERN_OPTIONS,
+  BLOCK_META,
+  blockForReview,
+  defaultFlow,
+  isBlockId,
+  linkId,
+  type BlockId,
+  type FlowClock,
+} from "@/lib/strategy-flow";
+import {
   BUILTIN_STRATEGY_ID,
-  STRATEGY_SECTIONS,
-  STRATEGY_STATUSES,
-  STRATEGY_STYLES,
   type Exchange,
   type PatternKey,
   type Strategy,
   type StrategySectionId,
 } from "@/lib/strategy";
 import type { StrategyReview } from "@/lib/strategy-review";
-
-function Num({
-  label,
-  hint,
-  value,
-  min,
-  max,
-  onChange,
-}: {
-  label: string;
-  hint?: string;
-  value: number;
-  min?: number;
-  max?: number;
-  step?: number;
-  onChange: (n: number) => void;
-}) {
-  return (
-    <label>
-      {label}
-      <input
-        type="number"
-        value={Number.isFinite(value) ? value : ""}
-        min={min}
-        max={max}
-        step="any"
-        onChange={(e) => onChange(e.target.value === "" ? NaN : Number(e.target.value))}
-      />
-      {hint ? <span className="hint">{hint}</span> : null}
-    </label>
-  );
-}
-
-function Txt({
-  label,
-  hint,
-  value,
-  onChange,
-  placeholder,
-}: {
-  label: string;
-  hint?: string;
-  value: string;
-  onChange: (s: string) => void;
-  placeholder?: string;
-}) {
-  return (
-    <label>
-      {label}
-      <input value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
-      {hint ? <span className="hint">{hint}</span> : null}
-    </label>
-  );
-}
-
-function Area({
-  label,
-  hint,
-  value,
-  onChange,
-}: {
-  label: string;
-  hint?: string;
-  value: string;
-  onChange: (s: string) => void;
-}) {
-  return (
-    <label className="span-3">
-      {label}
-      <textarea rows={4} value={value} onChange={(e) => onChange(e.target.value)} />
-      {hint ? <span className="hint">{hint}</span> : null}
-    </label>
-  );
-}
-
-function Check({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <label className="checkline">
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
-      <span>{label}</span>
-    </label>
-  );
-}
 
 export function StrategyForm({ initial, id }: { initial: Strategy; id?: string }) {
   const builtin = id === BUILTIN_STRATEGY_ID;
@@ -108,6 +32,8 @@ export function StrategyForm({ initial, id }: { initial: Strategy; id?: string }
   const [busy, setBusy] = useState(false);
   const [evaluating, setEvaluating] = useState(false);
   const [review, setReview] = useState<StrategyReview | null>(null);
+  const [blockId, setBlockId] = useState<BlockId | null>("profile");
+  const [linkKey, setLinkKey] = useState<string | null>(null);
 
   function payload(): Strategy {
     return {
@@ -138,6 +64,63 @@ export function StrategyForm({ initial, id }: { initial: Strategy; id?: string }
     patch("technical", { patterns: next });
   }
 
+  function moveBlock(nodeId: BlockId, x: number, y: number) {
+    setDoc((prev) => ({
+      ...prev,
+      flow: {
+        ...prev.flow,
+        nodes: prev.flow.nodes.map((n) => (n.id === nodeId ? { ...n, x, y } : n)),
+      },
+    }));
+  }
+
+  function connect(from: BlockId, to: BlockId) {
+    if (from === to) return;
+    setDoc((prev) => {
+      if (prev.flow.links.some((l) => l.from === from && l.to === to)) return prev;
+      return { ...prev, flow: { ...prev.flow, links: [...prev.flow.links, { from, to }] } };
+    });
+    setLinkKey(linkId({ from, to }));
+    setBlockId(null);
+  }
+
+  function removeLink(key: string) {
+    setDoc((prev) => ({
+      ...prev,
+      flow: { ...prev.flow, links: prev.flow.links.filter((l) => linkId(l) !== key) },
+    }));
+    setLinkKey(null);
+  }
+
+  function setClock(clock: FlowClock, enabled: boolean) {
+    setDoc((prev) => ({
+      ...prev,
+      flow: { ...prev.flow, clocks: { ...prev.flow.clocks, [clock]: { enabled } } },
+    }));
+  }
+
+  function resetLayout() {
+    const fresh = defaultFlow();
+    setDoc((prev) => ({ ...prev, flow: { ...prev.flow, nodes: fresh.nodes } }));
+  }
+
+  useEffect(() => {
+    if (!linkKey) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== "Delete" && e.key !== "Backspace") return;
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      e.preventDefault();
+      setDoc((prev) => ({
+        ...prev,
+        flow: { ...prev.flow, links: prev.flow.links.filter((l) => linkId(l) !== linkKey) },
+      }));
+      setLinkKey(null);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [linkKey]);
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -151,6 +134,7 @@ export function StrategyForm({ initial, id }: { initial: Strategy; id?: string }
     setBusy(false);
     if (!res.ok) {
       setErr(j.error ?? res.statusText);
+      setBlockId("profile");
       return;
     }
     router.push("/strategies");
@@ -171,8 +155,13 @@ export function StrategyForm({ initial, id }: { initial: Strategy; id?: string }
       setErr(j.error ?? res.statusText);
       return;
     }
-    setReview(j as StrategyReview);
-    requestAnimationFrame(() => document.getElementById("review")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    const next = j as StrategyReview;
+    setReview(next);
+    const first = next.findings.map((f) => blockForReview(f.section)).find((b): b is BlockId => Boolean(b));
+    if (first) {
+      setBlockId(first);
+      setLinkKey(null);
+    }
   }
 
   async function onDelete() {
@@ -191,485 +180,111 @@ export function StrategyForm({ initial, id }: { initial: Strategy; id?: string }
     router.refresh();
   }
 
+  const selected = blockId ? BLOCK_META[blockId] : null;
+
   return (
-    <form onSubmit={onSubmit}>
-      <div className="strategy-grid">
-        <nav className="side-nav" aria-label="Strategy sections">
-          {STRATEGY_SECTIONS.map((s) => (
-            <a key={s.id} href={`#${s.id}`}>
-              {s.title}
-            </a>
-          ))}
-        </nav>
-
-        <div className="strategy-main">
-          <section className="card sec" id="profile">
-            <h2>Profile</h2>
-            <p className="notes">{STRATEGY_SECTIONS[0].summary}</p>
-            <div className="fields">
-              <label className="span-2">
-                Name
-                <input
-                  required
-                  value={doc.profile.name}
-                  placeholder="Tight base breakout"
-                  onChange={(e) => patch("profile", { name: e.target.value })}
-                />
-              </label>
-              <label>
-                Status
-                <select
-                  value={doc.profile.status}
-                  onChange={(e) => patch("profile", { status: e.target.value as Strategy["profile"]["status"] })}
-                >
-                  {STRATEGY_STATUSES.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="span-3">
-                Thesis
-                <input
-                  value={doc.profile.thesis}
-                  onChange={(e) => patch("profile", { thesis: e.target.value })}
-                />
-                <span className="hint">One sentence: what you buy, and why.</span>
-              </label>
-              <label>
-                Style
-                <select
-                  value={doc.profile.style}
-                  onChange={(e) => patch("profile", { style: e.target.value as Strategy["profile"]["style"] })}
-                >
-                  {STRATEGY_STYLES.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <Num
-                label="Hold, days"
-                hint="Typical winner, not a hard time stop."
-                value={doc.profile.horizon_days}
-                min={1}
-                max={250}
-                step={1}
-                onChange={(n) => patch("profile", { horizon_days: n })}
-              />
-            </div>
-          </section>
-
-          <section className="card sec" id="universe">
-            <h2>Universe</h2>
-            <p className="notes">{STRATEGY_SECTIONS[1].summary}</p>
-            <div className="fields">
-              <div className="span-3">
-                <div className="kicker">Exchanges</div>
-                <div className="checks">
-                  {EXCHANGES.map((ex) => (
-                    <Check
-                      key={ex}
-                      label={ex}
-                      checked={doc.universe.exchanges.includes(ex)}
-                      onChange={() => toggleExchange(ex)}
-                    />
-                  ))}
-                  <Check
-                    label="Exclude ETFs"
-                    checked={doc.universe.exclude_etfs}
-                    onChange={(v) => patch("universe", { exclude_etfs: v })}
-                  />
-                </div>
-              </div>
-              <Num
-                label="Min market cap"
-                hint="Dollars. 2000000000 is $2B."
-                value={doc.universe.market_cap_min}
-                min={0}
-                step={1e8}
-                onChange={(n) => patch("universe", { market_cap_min: n })}
-              />
-              <Num
-                label="Max names for bars"
-                value={doc.universe.max_tickers}
-                min={50}
-                max={8000}
-                step={100}
-                onChange={(n) => patch("universe", { max_tickers: n })}
-              />
-            </div>
-          </section>
-
-          <section className="card sec" id="scanner">
-            <h2>Scanner</h2>
-            <p className="notes">{STRATEGY_SECTIONS[2].summary}</p>
-            <div className="fields">
-              <div className="span-3">
-                <Check
-                  label="Run the scanner"
-                  checked={doc.scanner.enabled}
-                  onChange={(v) => patch("scanner", { enabled: v })}
-                />
-              </div>
-              <Num label="Min price" value={doc.scanner.price_min} min={0} step={1} onChange={(n) => patch("scanner", { price_min: n })} />
-              <Num
-                label="Min avg volume"
-                hint="63-session average shares."
-                value={doc.scanner.avg_volume_min}
-                min={0}
-                step={100000}
-                onChange={(n) => patch("scanner", { avg_volume_min: n })}
-              />
-              <Num
-                label="Max % below 52w high"
-                value={doc.scanner.pct_below_52w_high_max}
-                min={0}
-                max={80}
-                step={1}
-                onChange={(n) => patch("scanner", { pct_below_52w_high_max: n })}
-              />
-              <Num
-                label="Max weekly volatility %"
-                value={doc.scanner.weekly_volatility_max}
-                min={0.1}
-                max={30}
-                step={0.1}
-                onChange={(n) => patch("scanner", { weekly_volatility_max: n })}
-              />
-              <Num
-                label="Earnings blackout, days"
-                hint="Skip names reporting inside this many sessions."
-                value={doc.scanner.earnings_blackout_days}
-                min={0}
-                max={30}
-                step={1}
-                onChange={(n) => patch("scanner", { earnings_blackout_days: n })}
-              />
-              <Num label="Target min names" value={doc.scanner.target_min} min={1} step={1} onChange={(n) => patch("scanner", { target_min: n })} />
-              <Num label="Target max names" value={doc.scanner.target_max} min={1} step={1} onChange={(n) => patch("scanner", { target_max: n })} />
-              <div className="span-3 checks">
-                <Check label="Price above SMA50" checked={doc.scanner.above_sma50} onChange={(v) => patch("scanner", { above_sma50: v })} />
-                <Check label="Price above SMA200" checked={doc.scanner.above_sma200} onChange={(v) => patch("scanner", { above_sma200: v })} />
-                <Check label="SMA50 above SMA200" checked={doc.scanner.sma50_above_sma200} onChange={(v) => patch("scanner", { sma50_above_sma200: v })} />
-              </div>
-              <div className="span-3">
-                <div className="kicker">Relaxation ladder</div>
-                <p className="notes">If the strict scan is shorter than the target, loosen these one step at a time.</p>
-              </div>
-              <Num label="Ladder: % below high" value={doc.scanner.ladder_high_pct} step={1} onChange={(n) => patch("scanner", { ladder_high_pct: n })} />
-              <Num label="Ladder: weekly vol %" value={doc.scanner.ladder_volatility_max} step={0.1} onChange={(n) => patch("scanner", { ladder_volatility_max: n })} />
-              <Num label="Ladder: min volume" value={doc.scanner.ladder_volume_min} step={50000} onChange={(n) => patch("scanner", { ladder_volume_min: n })} />
-              <Num label="Ladder: min market cap" value={doc.scanner.ladder_market_cap_min} step={1e8} onChange={(n) => patch("scanner", { ladder_market_cap_min: n })} />
-            </div>
-          </section>
-
-          <section className="card sec" id="technical">
-            <h2>Technical</h2>
-            <p className="notes">{STRATEGY_SECTIONS[3].summary}</p>
-            <div className="fields">
-              <div className="span-3">
-                <Check label="Score technicals" checked={doc.technical.enabled} onChange={(v) => patch("technical", { enabled: v })} />
-              </div>
-              <Num
-                label="Min trend score"
-                hint="Out of 8. Below this, the name is dropped."
-                value={doc.technical.min_trend_score}
-                min={1}
-                max={8}
-                step={1}
-                onChange={(n) => patch("technical", { min_trend_score: n })}
-              />
-              <Num
-                label="Near-high %"
-                value={doc.technical.near_high_pct}
-                min={1}
-                max={40}
-                step={1}
-                onChange={(n) => patch("technical", { near_high_pct: n })}
-              />
-              <Num
-                label="Min RS rating"
-                value={doc.technical.rs_rating_min}
-                min={1}
-                max={99}
-                step={1}
-                onChange={(n) => patch("technical", { rs_rating_min: n })}
-              />
-              <div className="span-3">
-                <div className="kicker">Patterns</div>
-                <div className="checks">
-                  {PATTERN_OPTIONS.map(([key, label]) => (
-                    <Check key={key} label={label} checked={doc.technical.patterns.includes(key)} onChange={() => togglePattern(key)} />
-                  ))}
-                </div>
-              </div>
-              <div className="span-3 checks">
-                <Check
-                  label="RS rating is a hard filter"
-                  checked={doc.technical.rs_hard_filter}
-                  onChange={(v) => patch("technical", { rs_hard_filter: v })}
-                />
-                <Check
-                  label="Trend template is a hard filter"
-                  checked={doc.technical.trend_template_hard_filter}
-                  onChange={(v) => patch("technical", { trend_template_hard_filter: v })}
-                />
-              </div>
-              <Num
-                label="VCP contraction ratio"
-                hint="Each pullback must be at most this fraction of the prior one."
-                value={doc.technical.vcp_max_ratio}
-                min={0.2}
-                max={1}
-                step={0.05}
-                onChange={(n) => patch("technical", { vcp_max_ratio: n })}
-              />
-              <Num
-                label="Overhead lookback, months"
-                value={doc.technical.overhead_lookback_months}
-                min={3}
-                max={60}
-                step={1}
-                onChange={(n) => patch("technical", { overhead_lookback_months: n })}
-              />
-              <Num
-                label="Supply zone, % above price"
-                value={doc.technical.overhead_zone_pct}
-                min={1}
-                max={40}
-                step={1}
-                onChange={(n) => patch("technical", { overhead_zone_pct: n })}
-              />
-            </div>
-          </section>
-
-          <section className="card sec" id="risk">
-            <h2>Risk</h2>
-            <p className="notes">{STRATEGY_SECTIONS[4].summary}</p>
-            <div className="fields">
-              <Num label="Account size, USD" value={doc.risk.account_size_usd} min={100} step={100} onChange={(n) => patch("risk", { account_size_usd: n })} />
-              <Num label="Risk % per trade" value={doc.risk.risk_pct} min={0.1} max={5} step={0.1} onChange={(n) => patch("risk", { risk_pct: n })} />
-              <Num label="Heat cap %" value={doc.risk.heat_cap_pct} min={0.5} max={20} step={0.5} onChange={(n) => patch("risk", { heat_cap_pct: n })} />
-              <Num label="Max positions" value={doc.risk.max_positions} min={1} max={30} step={1} onChange={(n) => patch("risk", { max_positions: n })} />
-              <Num label="Max per sector" value={doc.risk.max_per_sector} min={1} max={10} step={1} onChange={(n) => patch("risk", { max_per_sector: n })} />
-              <Num label="Max notional %" value={doc.risk.max_notional_pct} min={5} max={100} step={1} onChange={(n) => patch("risk", { max_notional_pct: n })} />
-              <Num label="Stop max % (normal)" value={doc.risk.stop_max_pct} min={1} max={30} step={0.5} onChange={(n) => patch("risk", { stop_max_pct: n })} />
-              <Num label="Stop max % (loose)" hint="Used only when the structural stop is wider than the normal cap." value={doc.risk.stop_max_pct_loose} min={1} max={40} step={0.5} onChange={(n) => patch("risk", { stop_max_pct_loose: n })} />
-              <Num label="Minimum R" value={doc.risk.min_r} min={1} max={10} step={0.5} onChange={(n) => patch("risk", { min_r: n })} />
-              <Num label="Entry buffer min %" value={doc.risk.entry_buffer_min_pct} min={0} max={5} step={0.1} onChange={(n) => patch("risk", { entry_buffer_min_pct: n })} />
-              <Num label="Entry buffer max %" value={doc.risk.entry_buffer_max_pct} min={0} max={5} step={0.1} onChange={(n) => patch("risk", { entry_buffer_max_pct: n })} />
-            </div>
-          </section>
-
-          <section className="card sec" id="regime">
-            <h2>Regime</h2>
-            <p className="notes">{STRATEGY_SECTIONS[5].summary}</p>
-            <div className="fields">
-              <div className="span-3">
-                <Check label="Gate new entries on regime" checked={doc.regime.enabled} onChange={(v) => patch("regime", { enabled: v })} />
-              </div>
-              <Num label="Distribution days: half size" value={doc.regime.distribution_pressure} min={1} max={20} step={1} onChange={(n) => patch("regime", { distribution_pressure: n })} />
-              <Num label="Distribution days: no entries" value={doc.regime.distribution_correction} min={1} max={25} step={1} onChange={(n) => patch("regime", { distribution_correction: n })} />
-              <Num label="Breadth risk-on %" value={doc.regime.breadth_risk_on_pct} step={1} onChange={(n) => patch("regime", { breadth_risk_on_pct: n })} />
-              <Num label="Breadth risk-off %" value={doc.regime.breadth_risk_off_pct} step={1} onChange={(n) => patch("regime", { breadth_risk_off_pct: n })} />
-              <Num label="Futures red threshold %" hint="ES/NQ below this at the open blocks the morning." value={doc.regime.futures_red_pct} step={0.05} onChange={(n) => patch("regime", { futures_red_pct: n })} />
-              <div className="span-3">
-                <Check
-                  label="Respect macro blackout (CPI, NFP, FOMC)"
-                  checked={doc.regime.respect_macro_blackout}
-                  onChange={(v) => patch("regime", { respect_macro_blackout: v })}
-                />
-              </div>
-            </div>
-          </section>
-
-          <section className="card sec" id="news">
-            <h2>News</h2>
-            <p className="notes">{STRATEGY_SECTIONS[6].summary}</p>
-            <div className="fields">
-              <div className="span-3">
-                <Check label="Read news before a plan is kept" checked={doc.news.enabled} onChange={(v) => patch("news", { enabled: v })} />
-              </div>
-              <Num label="Lookback, days" value={doc.news.lookback_days} min={1} max={30} step={1} onChange={(n) => patch("news", { lookback_days: n })} />
-              <Num label="Headlines per name" value={doc.news.max_headlines} min={1} max={30} step={1} onChange={(n) => patch("news", { max_headlines: n })} />
-              <Num
-                label="Warn if earnings within, days"
-                hint="Open positions, not the scanner blackout."
-                value={doc.news.earnings_warn_days}
-                min={0}
-                max={15}
-                step={1}
-                onChange={(n) => patch("news", { earnings_warn_days: n })}
-              />
-              <label className="span-3">
-                Red-flag phrases
-                <input value={flagsText} onChange={(e) => setFlagsText(e.target.value)} />
-                <span className="hint">Comma-separated. A headline containing one of these marks the name.</span>
-              </label>
-            </div>
-          </section>
-
-          <section className="card sec" id="alerts">
-            <h2>Alerts</h2>
-            <p className="notes">{STRATEGY_SECTIONS[7].summary}</p>
-            <div className="fields">
-              <div className="span-3">
-                <Check label="Raise intraday alerts" checked={doc.alerts.enabled} onChange={(v) => patch("alerts", { enabled: v })} />
-              </div>
-              <Txt label="Session start" hint="ET, 24-hour." value={doc.alerts.session_start} onChange={(s) => patch("alerts", { session_start: s })} />
-              <Txt label="Session end" value={doc.alerts.session_end} onChange={(s) => patch("alerts", { session_end: s })} />
-              <Num label="Min RVOL" value={doc.alerts.rvol_min} min={0.5} max={10} step={0.1} onChange={(n) => patch("alerts", { rvol_min: n })} />
-              <Num
-                label="No-chase, % through entry"
-                value={doc.alerts.no_chase_pct}
-                min={0}
-                max={10}
-                step={0.1}
-                onChange={(n) => patch("alerts", { no_chase_pct: n })}
-              />
-              <div className="span-3 checks">
-                <Check label="Require price above VWAP" checked={doc.alerts.require_above_vwap} onChange={(v) => patch("alerts", { require_above_vwap: v })} />
-                <Check
-                  label="Require price above prior close"
-                  checked={doc.alerts.require_above_prior_close}
-                  onChange={(v) => patch("alerts", { require_above_prior_close: v })}
-                />
-              </div>
-            </div>
-          </section>
-
-          <section className="card sec" id="management">
-            <h2>Management</h2>
-            <p className="notes">{STRATEGY_SECTIONS[8].summary}</p>
-            <div className="fields">
-              <Num label="Sell half at R" value={doc.management.sell_half_at_r} min={0.5} max={10} step={0.5} onChange={(n) => patch("management", { sell_half_at_r: n })} />
-              <Num label="Trail under EMA" value={doc.management.trail_ema} min={3} max={50} step={1} onChange={(n) => patch("management", { trail_ema: n })} />
-              <Num
-                label="Earnings decision, days"
-                value={doc.management.earnings_decision_days}
-                min={0}
-                max={15}
-                step={1}
-                onChange={(n) => patch("management", { earnings_decision_days: n })}
-              />
-              <div className="span-3">
-                <Check
-                  label="Exit a failed breakout (close back under resistance)"
-                  checked={doc.management.exit_failed_breakout}
-                  onChange={(v) => patch("management", { exit_failed_breakout: v })}
-                />
-              </div>
-            </div>
-          </section>
-
-          <section className="card sec" id="evaluator">
-            <h2>Evaluator</h2>
-            <p className="notes">{STRATEGY_SECTIONS.find((s) => s.id === "evaluator")?.summary}</p>
-            <div className="fields">
-              <div className="span-3">
-                <div className="kicker">When</div>
-                <p className="notes">
-                  The agent runs only after a name has already cleared the hard rules. Plan card is the nightly judgment.
-                  An actionable alert is the last look before you copy the bracket. Management is the hold-or-out check.
-                  The nightly job uses the active strategy that was updated most recently.
-                </p>
-                <div className="checks">
-                  <Check
-                    label="Plan card"
-                    checked={doc.evaluator.gates.plan_card}
-                    onChange={(v) => patch("evaluator", { gates: { ...doc.evaluator.gates, plan_card: v } })}
-                  />
-                  <Check
-                    label="Actionable alert"
-                    checked={doc.evaluator.gates.actionable_alert}
-                    onChange={(v) => patch("evaluator", { gates: { ...doc.evaluator.gates, actionable_alert: v } })}
-                  />
-                  <Check
-                    label="Management event"
-                    checked={doc.evaluator.gates.management}
-                    onChange={(v) => patch("evaluator", { gates: { ...doc.evaluator.gates, management: v } })}
-                  />
-                </div>
-              </div>
-              <Area
-                label="Direction"
-                hint="What a good name looks like for this strategy."
-                value={doc.evaluator.direction}
-                onChange={(s) => patch("evaluator", { direction: s })}
-              />
-              <Area
-                label="Must pass"
-                hint="Qualitative rules the chart math cannot express."
-                value={doc.evaluator.must_pass}
-                onChange={(s) => patch("evaluator", { must_pass: s })}
-              />
-              <Area
-                label="Disqualify"
-                hint="What makes you pass even when the numbers cleared."
-                value={doc.evaluator.disqualify}
-                onChange={(s) => patch("evaluator", { disqualify: s })}
-              />
-              <Area
-                label="Do not"
-                hint="Limits. The agent must not override the stop or invent a catalyst."
-                value={doc.evaluator.do_not}
-                onChange={(s) => patch("evaluator", { do_not: s })}
-              />
-            </div>
-          </section>
-
-          {review ? (
-            <section className="card sec" id="review">
-              <h2>Evaluation</h2>
-              <p className="notes">
-                Advisory only. This is not saved, and it does not change the rules.
-                {review.provider === "rules" ? " Checked with the rule pass." : ` Checked with the rule pass and ${review.provider}.`}
-              </p>
-              {review.findings.length ? (
-                <ul className="review-list">
-                  {review.findings.map((f, i) => (
-                    <li key={`${f.section}-${i}`}>
-                      <span className={`chip ${f.severity === "conflict" ? "bad" : f.severity === "gap" ? "warn" : ""}`}>
-                        {f.severity}
-                      </span>
-                      <span className="kicker">{f.section}</span>
-                      <span>{f.message}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="notes">No conflicts or gaps in this pass.</p>
-              )}
-            </section>
+    <form className="flow-page" onSubmit={onSubmit}>
+      <div className="flow-bar strategy-bar">
+        <div>
+          <h1>{doc.profile.name || "New strategy"}</h1>
+          <p>Each column is a job. Drag the bottom dot onto another block to connect it. Click a block to set it up. Scroll to zoom.</p>
+        </div>
+        <div className="actions">
+          {id ? (
+            <Link className="btn ghost" href={`/strategies/new?from=${id}`}>
+              Duplicate
+            </Link>
           ) : null}
-
-          {err ? <p className="notes" style={{ color: "var(--red)" }}>{err}</p> : null}
-          <div className="savebar card">
-            <div>
-              {id && !builtin ? (
-                <button className="btn danger" type="button" disabled={busy || evaluating} onClick={onDelete}>
-                  Delete
-                </button>
-              ) : builtin ? (
-                <span className="notes">This is the desk&apos;s swing routine. Edit it here, or duplicate it to start another.</span>
-              ) : (
-                <span className="notes">Starts from the current swing routine. Change any section, then save.</span>
-              )}
-            </div>
-            <div className="actions">
-              <button className="btn ghost" type="button" disabled={busy || evaluating} onClick={onEvaluate}>
-                {evaluating ? "Evaluating…" : "Evaluate"}
-              </button>
-              <button className="btn" type="submit" disabled={busy || evaluating}>
-                {busy ? "Saving…" : id ? "Save changes" : "Save strategy"}
-              </button>
-            </div>
-          </div>
+          <Link className="btn ghost" href="/strategies">
+            Back
+          </Link>
+          <button className="btn ghost" type="button" disabled={busy || evaluating} onClick={resetLayout}>
+            Reset layout
+          </button>
+          {linkKey ? (
+            <button className="btn ghost" type="button" onClick={() => removeLink(linkKey)}>
+              Remove connection
+            </button>
+          ) : null}
+          <button className="btn ghost" type="button" disabled={busy || evaluating} onClick={onEvaluate}>
+            {evaluating ? "Evaluating…" : "Evaluate"}
+          </button>
+          {id && !builtin ? (
+            <button className="btn danger" type="button" disabled={busy || evaluating} onClick={onDelete}>
+              Delete
+            </button>
+          ) : null}
+          <button className="btn" type="submit" disabled={busy || evaluating}>
+            {busy ? "Saving…" : id ? "Save" : "Save strategy"}
+          </button>
         </div>
       </div>
+      {err ? <p className="strategy-err">{err}</p> : null}
+      {review ? (
+        <div className="strategy-review">
+          {review.findings.length ? (
+            review.findings.map((f, i) => {
+              const target = blockForReview(f.section);
+              return (
+                <button
+                  key={`${f.section}-${i}`}
+                  type="button"
+                  className={`chip ${f.severity === "conflict" ? "bad" : f.severity === "gap" ? "warn" : ""}`}
+                  onClick={() => {
+                    if (!target || !isBlockId(target)) return;
+                    setBlockId(target);
+                    setLinkKey(null);
+                  }}
+                >
+                  {f.section}: {f.message}
+                </button>
+              );
+            })
+          ) : (
+            <span className="notes">No conflicts or gaps in this pass.</span>
+          )}
+        </div>
+      ) : null}
+      <StrategyCanvas
+        doc={doc}
+        selectedId={blockId}
+        selectedLink={linkKey}
+        onSelect={(nodeId) => {
+          setBlockId(nodeId);
+          setLinkKey(null);
+        }}
+        onSelectLink={(key) => {
+          setLinkKey(key || null);
+          if (key) setBlockId(null);
+        }}
+        onMove={moveBlock}
+        onConnect={connect}
+        panelOpen={Boolean(blockId)}
+      />
+      {selected && blockId ? (
+        <aside className="flow-panel strategy-setup" onPointerDown={(e) => e.stopPropagation()}>
+          <div className="flow-panel-top">
+            <div>
+              <div className="kicker">{selected.kicker}</div>
+              <h2>{selected.title}</h2>
+            </div>
+            <button type="button" className="btn ghost" onClick={() => setBlockId(null)}>
+              Close
+            </button>
+          </div>
+          <BlockSetup
+            block={blockId}
+            doc={doc}
+            flagsText={flagsText}
+            review={review}
+            onFlags={setFlagsText}
+            onClock={setClock}
+            patch={patch}
+            toggleExchange={toggleExchange}
+            togglePattern={togglePattern}
+          />
+        </aside>
+      ) : null}
     </form>
   );
 }
