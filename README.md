@@ -102,4 +102,3 @@ tests/
 
 - Order placement (plan card -> Webull bracket by hand).
 - Any paid data (Finviz Elite, Finnhub candles, FMP screener, TradingView webhooks). `finvizfinance` scraping was rejected (ToS + Cloudflare).
-- 
