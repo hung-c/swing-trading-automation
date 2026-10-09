@@ -1,5 +1,16 @@
-import { Area, Check, Num, Txt } from "@/components/fields";
-import { CLOCK_COPY, clockOf, type BlockId, type ClockSchedule, type FlowClock } from "@/lib/strategy-flow";
+import { Area, Check, Num, Pick, Txt } from "@/components/fields";
+import {
+  CLOCK_COPY,
+  CLOCK_DEFAULTS,
+  EARLY_CLOSE_NIGHTLY,
+  TICK_TIMES,
+  ceilToTick,
+  clockOf,
+  floorToTick,
+  type BlockId,
+  type ClockSchedule,
+  type FlowClock,
+} from "@/lib/strategy-flow";
 import {
   EXCHANGES,
   PATTERN_OPTIONS,
@@ -49,22 +60,24 @@ export function BlockSetup({
             checked={doc.flow.clocks[clock].enabled}
             onChange={(v) => onClock(clock, { enabled: v })}
           />
-          <Txt
+          <Pick
             label="Start"
-            hint="ET, 24-hour. The PC checks every 15 minutes and starts this job on the first check at or after this time."
-            value={doc.flow.clocks[clock].start}
+            hint="ET. Swing Tick runs at these times, every 15 minutes from 07:03 to 19:03."
+            value={ceilToTick(doc.flow.clocks[clock].start)}
+            options={TICK_TIMES}
             onChange={(s) => onClock(clock, { start: s })}
           />
           {clock === "intraday" ? (
-            <Txt
+            <Pick
               label="End"
-              hint="ET, 24-hour. Alerts run every 15 minutes until this time."
-              value={doc.flow.clocks[clock].end ?? "15:50"}
+              hint="ET. Alerts run on each tick from the start through this time."
+              value={floorToTick(doc.flow.clocks[clock].end ?? CLOCK_DEFAULTS.intraday.end ?? "15:48")}
+              options={TICK_TIMES}
               onChange={(s) => onClock(clock, { end: s })}
             />
           ) : null}
-          {clock === "nightly" && doc.flow.clocks[clock].start === "16:37" ? (
-            <p className="notes">On an early-close day this runs at 13:37 ET. Any other start time is used as written.</p>
+          {clock === "nightly" && ceilToTick(doc.flow.clocks[clock].start) === CLOCK_DEFAULTS.nightly.start ? (
+            <p className="notes">On an early-close day this runs at {EARLY_CLOSE_NIGHTLY} ET. Any other start time is used as written.</p>
           ) : null}
           {clock === "report" ? <p className="notes">Friday only.</p> : null}
           <p className="notes">The desk still wakes once for everyone. This switch records whether this strategy takes part.</p>

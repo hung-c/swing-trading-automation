@@ -124,7 +124,7 @@ const COLUMNS: { job: string; title: string; hint: string; x: number; steps: Ste
   {
     job: "nightly",
     title: "Nightly",
-    hint: "16:37 ET",
+    hint: "16:48 ET",
     x: COLS[2],
     steps: [
       { id: "guard", title: "Guard" },
@@ -145,7 +145,7 @@ const COLUMNS: { job: string; title: string; hint: string; x: number; steps: Ste
   {
     job: "report",
     title: "Weekly report",
-    hint: "Fri 17:11 ET",
+    hint: "Fri 17:18 ET",
     x: COLS[3],
     steps: [{ id: "report", title: "Expectancy" }],
   },

@@ -99,13 +99,20 @@ def test_draft_and_paused_do_not_schedule(tmp_path):
     assert due_jobs(at("17:11"), path=db, early_close=False) == []
 
 
-def test_early_close_nightly_default_is_1337(tmp_path):
+def test_early_close_nightly_default_is_1348(tmp_path):
     db = tmp_path / "j.sqlite"
     add_strategy(db, "desk", "active", {"nightly": {"enabled": True}})
+    assert "nightly" not in due_jobs(at("13:33"), path=db, early_close=True)
+    assert due_jobs(at("13:48"), path=db, early_close=True) == ["nightly"]
+    stamp(db, "nightly", "ok", at("13:48"))
+    assert "nightly" not in due_jobs(at("16:48"), path=db, early_close=True)
+
+
+def test_legacy_1637_still_shifts_on_early_close(tmp_path):
+    db = tmp_path / "j.sqlite"
+    add_strategy(db, "desk", "active", {"nightly": {"enabled": True, "start": "16:37"}})
     assert "nightly" not in due_jobs(at("13:36"), path=db, early_close=True)
     assert due_jobs(at("13:37"), path=db, early_close=True) == ["nightly"]
-    stamp(db, "nightly", "ok", at("13:37"))
-    assert "nightly" not in due_jobs(at("16:37"), path=db, early_close=True)
 
 
 def test_custom_nightly_time_is_not_shifted(tmp_path):

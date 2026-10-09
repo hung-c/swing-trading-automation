@@ -33,13 +33,50 @@ export type StrategyFlow = {
   clocks: Record<FlowClock, ClockSchedule>;
 };
 
+/** Swing Tick fires every 15 minutes from 07:03 through 19:03 ET. Keep in sync with scripts/install-tick.ps1. */
+export const TICK_TIMES: readonly string[] = (() => {
+  const out: string[] = [];
+  for (let m = 7 * 60 + 3; m <= 19 * 60 + 3; m += 15) {
+    out.push(`${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`);
+  }
+  return out;
+})();
+
+function toMinutes(value: string): number | null {
+  const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(value.trim());
+  if (!match) return null;
+  return Number(match[1]) * 60 + Number(match[2]);
+}
+
+/** First tick at or after `value`. A time after 19:03 stays on the last tick. */
+export function ceilToTick(value: string): string {
+  const n = toMinutes(value);
+  if (n == null) return TICK_TIMES[0];
+  return TICK_TIMES.find((t) => (toMinutes(t) ?? 0) >= n) ?? TICK_TIMES[TICK_TIMES.length - 1];
+}
+
+/** Last tick at or before `value`. A time before 07:03 stays on the first tick. */
+export function floorToTick(value: string): string {
+  const n = toMinutes(value);
+  if (n == null) return TICK_TIMES[0];
+  let hit: string = TICK_TIMES[0];
+  for (const t of TICK_TIMES) {
+    if ((toMinutes(t) ?? 0) <= n) hit = t;
+    else break;
+  }
+  return hit;
+}
+
 /** Defaults the PC tick uses when a saved strategy has no start time. Keep in sync with src/swing/tick.py. */
 export const CLOCK_DEFAULTS: Record<FlowClock, { start: string; end?: string }> = {
-  nightly: { start: "16:37" },
+  nightly: { start: "16:48" },
   premarket: { start: "07:03" },
-  intraday: { start: "10:00", end: "15:50" },
-  report: { start: "17:11" },
+  intraday: { start: "10:03", end: "15:48" },
+  report: { start: "17:18" },
 };
+
+/** Early-close move for the default nightly tick. A saved 16:37 still shifts in tick.py. */
+export const EARLY_CLOSE_NIGHTLY = "13:48";
 
 export const NODE_W = 188;
 export const NODE_H = 62;
@@ -49,10 +86,10 @@ const ROW_H = 92;
 
 export const BLOCK_META: Record<BlockId, { title: string; kicker: string; when: string }> = {
   profile: { title: "Profile", kicker: "Strategy", when: "Name and thesis" },
-  "clock:nightly": { title: "Nightly", kicker: "Job", when: "16:37 ET" },
+  "clock:nightly": { title: "Nightly", kicker: "Job", when: "16:48 ET" },
   "clock:premarket": { title: "Premarket", kicker: "Job", when: "07:03 ET" },
   "clock:intraday": { title: "Intraday", kicker: "Job", when: "Every 15 min" },
-  "clock:report": { title: "Weekly report", kicker: "Job", when: "Fri 17:11 ET" },
+  "clock:report": { title: "Weekly report", kicker: "Job", when: "Fri 17:18 ET" },
   universe: { title: "Universe", kicker: "Rules", when: "Who is eligible" },
   scanner: { title: "Scanner", kicker: "Rules", when: "Hard filters" },
   technical: { title: "Technical", kicker: "Rules", when: "Patterns and trend" },
@@ -204,9 +241,9 @@ export function normalizeFlow(input: unknown): StrategyFlow {
     const row = rawClocks[clock];
     const obj = row && typeof row === "object" ? (row as { enabled?: unknown; start?: unknown; end?: unknown }) : {};
     const enabled = typeof obj.enabled === "boolean" ? obj.enabled : base.clocks[clock].enabled;
-    const start = clockTime(obj.start, base.clocks[clock].start);
+    const start = ceilToTick(clockTime(obj.start, base.clocks[clock].start));
     if (clock === "intraday") {
-      clocks[clock] = { enabled, start, end: clockTime(obj.end, base.clocks.intraday.end ?? "15:50") };
+      clocks[clock] = { enabled, start, end: floorToTick(clockTime(obj.end, base.clocks.intraday.end ?? "15:48")) };
     } else {
       clocks[clock] = { enabled, start };
     }

@@ -460,6 +460,41 @@ form.flow-page .flow-tools {
   cursor: pointer;
 }
 .flow-edges path.sedge.on { stroke: rgba(108, 182, 255, 0.45); }
+.tick-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  font-size: 14px;
+  color: var(--text);
+}
+.tick-time { display: inline-flex; align-items: center; gap: 4px; }
+.tick-step {
+  width: 32px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+}
+.tick-step:hover:not(:disabled) { background: var(--card-2); }
+.tick-step:disabled { opacity: 0.35; cursor: default; }
+.tick-field select {
+  width: 6.75rem;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  appearance: none;
+  padding-right: 28px;
+  background-color: var(--bg);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%238b9bb0' d='M1.2.8 6 5.6 10.8.8 12 2 6 8 0 2z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+.tick-field .hint { flex-basis: 100%; margin: 0; }
 .strategy-setup { width: min(460px, calc(100vw - 24px)); top: 132px; }
 .strategy-setup .fields { grid-template-columns: 1fr 1fr; }
 .strategy-setup .fields .span-2,
