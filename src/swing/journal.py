@@ -64,7 +64,7 @@ def require() -> str:
     url = database_url()
     if not url:
         raise RuntimeError(
-            "DATABASE_URL is required (Neon). Set it in .env, GitHub Actions secrets, and Vercel. "
+            "DATABASE_URL is required (Neon). Set it in .env and as a Vercel env var. "
             "SQLite is only used by tests."
         )
     return url
