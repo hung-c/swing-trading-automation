@@ -61,14 +61,16 @@ def load_config(path: Path | None = None) -> Cfg:
 
 
 def env(name: str, default: str | None = None, required: bool = False) -> str | None:
-    v = os.environ.get(name, default)
+    """Read an env var. Strip ends so a pasted trailing newline cannot land in an HTTP header."""
+    raw = os.environ.get(name, default)
+    v = raw.strip() if isinstance(raw, str) else raw
     if required and not v:
         raise RuntimeError(f"Missing required environment variable {name}")
     return v or None
 
 
 def has_env(*names: str) -> bool:
-    return all(os.environ.get(n) for n in names)
+    return all(env(n) for n in names)
 
 
 def ensure_dirs(cfg: Cfg) -> dict[str, Path]:
