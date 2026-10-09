@@ -17,9 +17,9 @@ The job PC runs one task, **Swing Tick**, every 15 minutes from 07:03 to 19:03 o
 | Job | Default | What |
 | --- | --- | --- |
 | `swing premarket` | once at 07:03 | SPY/QQQ vs MA50/MA200, ES/NQ futures, distribution days / follow-through, breadth, Faber 10-mo SMA, macro blackout (CPI/PPI/NFP/GDP/FOMC) -> sizing for today |
-| `swing intraday` | every 15 min, 10:00-15:50 | For each plan: resistance cross, > yesterday close, > VWAP, time-adjusted RVOL > 1.5, no-chase (> +1%) flag; stop / 2R checks for positions. The pass near the close also does management (failed-breakout exit, sell half at 2R, trail under 8 EMA, earnings <= 2 days) |
-| `swing nightly` | once at 16:37 (13:37 on early-close days) | Universe -> SIP bars -> Scan A -> weekly clear-sky + overhead supply -> 8-point trend score -> patterns -> plan cards -> news -> Groq prose -> Neon (briefs, plans, chart PNGs). A start time other than 16:37 is used as written, including on early-close days. |
-| `swing report` | Friday 17:11, off until a strategy turns it on | Expectancy / SQN per pattern from the trade journal |
+| `swing intraday` | every 15 min, 10:03-15:48 | For each plan: resistance cross, > yesterday close, > VWAP, time-adjusted RVOL > 1.5, no-chase (> +1%) flag; stop / 2R checks for positions. The pass near the close also does management (failed-breakout exit, sell half at 2R, trail under 8 EMA, earnings <= 2 days) |
+| `swing nightly` | once at 16:48 (13:48 on early-close days) | Universe -> SIP bars -> Scan A -> weekly clear-sky + overhead supply -> 8-point trend score -> patterns -> plan cards -> news -> Groq prose -> Neon (briefs, plans, chart PNGs). A start time other than 16:48 is used as written, including on early-close days. A strategy still saved as 16:37 moves to 13:37. |
+| `swing report` | Friday 17:18, off until a strategy turns it on | Expectancy / SQN per pattern from the trade journal |
 
 A once-a-day job does not run again after it succeeds. A failed run is tried on the next tick. Intraday waits 15 minutes after a success.
 

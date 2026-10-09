@@ -1,8 +1,8 @@
 """One 15-minute tick. Decides which of the four jobs are due, then runs those.
 
-Start times live on each active strategy's clocks (web/lib/strategy-flow.ts). Defaults match
-the old fixed schedule. A missing start, or nightly left at 16:37, still moves to 13:37 on an
-early-close day. Any other nightly time is used as written.
+Start times live on each active strategy's clocks (web/lib/strategy-flow.ts) and are Swing Tick
+times. A missing nightly start, or one left at 16:48, moves to 13:48 on an early-close day.
+A strategy still saved as 16:37 moves to 13:37. Any other nightly time is used as written.
 
 The runners stay desk-wide (config.yaml). This module only chooses when they start.
 """
@@ -23,13 +23,16 @@ log = logging.getLogger(__name__)
 JOB_ORDER = ("premarket", "intraday", "nightly", "report")
 DEFAULT_START = {
     "premarket": time(7, 3),
-    "intraday": time(10, 0),
-    "nightly": time(16, 37),
-    "report": time(17, 11),
+    "intraday": time(10, 3),
+    "nightly": time(16, 48),
+    "report": time(17, 18),
 }
-DEFAULT_INTRADAY_END = time(15, 50)
-NIGHTLY_DEFAULT = time(16, 37)
-EARLY_CLOSE_NIGHTLY = time(13, 37)
+DEFAULT_INTRADAY_END = time(15, 48)
+# Default tick, plus the older 16:37 default, both shift three hours on an early close.
+NIGHTLY_SHIFTS = {
+    time(16, 48): time(13, 48),
+    time(16, 37): time(13, 37),
+}
 RUN_STALE = timedelta(minutes=60)
 INTERVAL = timedelta(minutes=15)
 
@@ -71,8 +74,8 @@ def _windows(strategies: list[dict], early_close: bool) -> dict[str, dict]:
             if not isinstance(raw, dict) or raw.get("enabled") is not True:
                 continue
             start = _parse_hhmm(raw.get("start"), DEFAULT_START[job])
-            if job == "nightly" and early_close and start == NIGHTLY_DEFAULT:
-                start = EARLY_CLOSE_NIGHTLY
+            if job == "nightly" and early_close and start in NIGHTLY_SHIFTS:
+                start = NIGHTLY_SHIFTS[start]
             end = _parse_hhmm(raw.get("end"), DEFAULT_INTRADAY_END) if job == "intraday" else None
             current = windows.get(job)
             if current is None:
