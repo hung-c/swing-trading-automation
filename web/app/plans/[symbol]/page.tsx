@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Nav } from "@/components/Nav";
 import { PlanCard } from "@/components/PlanCard";
+import { PlanChart } from "@/components/PlanChart";
 import { loadPlan, loadSnapshot } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
@@ -25,21 +26,34 @@ export default async function PlanDetail({ params }: { params: Promise<{ symbol:
               <h1 style={{ margin: 0 }}>{plan.symbol}</h1>
             </div>
             <PlanCard plan={plan} price={snap.prices[plan.symbol]} />
-            <div className="grid" style={{ marginTop: 16 }}>
-              {kinds.map((kind) => (
-                <figure key={kind} className="card" style={{ padding: 10 }}>
-                  <figcaption className="pat" style={{ margin: "4px 8px 8px" }}>
-                    {kind}
-                  </figcaption>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    className="chart"
-                    alt={`${plan.symbol} ${kind}`}
-                    src={`/api/chart/${day}/${plan.symbol}/${kind}`}
-                  />
-                </figure>
-              ))}
+            <div style={{ marginTop: 16 }}>
+              <PlanChart
+                symbol={plan.symbol}
+                pattern={plan.pattern}
+                levels={{
+                  resistance: plan.resistance,
+                  entry: plan.entry,
+                  stop: plan.stop,
+                  target2r: plan.target_2r,
+                  target3r: plan.target_3r,
+                  alert: plan.alert_level,
+                }}
+              />
             </div>
+            {day ? (
+              <details className="card ichart-shots">
+                <summary>Saved snapshots</summary>
+                <div className="grid">
+                  {kinds.map((kind) => (
+                    <figure key={kind}>
+                      <figcaption className="pat">{kind}</figcaption>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img className="chart" alt={`${plan.symbol} ${kind}`} src={`/api/chart/${day}/${plan.symbol}/${kind}`} />
+                    </figure>
+                  ))}
+                </div>
+              </details>
+            ) : null}
           </>
         ) : (
           <div className="card empty">
