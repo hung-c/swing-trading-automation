@@ -58,6 +58,7 @@ export type FlowPayload = {
   nodes: FlowNodeView[];
   edges: FlowEdge[];
   world: { w: number; h: number };
+  activeStrategy: { id: string; name: string } | null;
 };
 
 const ET = "America/New_York";
@@ -387,6 +388,7 @@ export function buildFlow(
     nodes,
     edges: graph.edges,
     world: graph.world,
+    activeStrategy: null,
   };
 }
 

@@ -400,6 +400,20 @@ select { background: var(--bg); }
 .sblock.clock { background: var(--card-2); }
 .sblock.off { opacity: 0.48; }
 .sblock.on { outline: 2px solid var(--text); outline-offset: 2px; }
+.sblock.status-ok { border-color: rgba(61, 207, 142, 0.55); }
+.sblock.status-ok .flow-sub { color: var(--green); }
+.sblock.status-failed, .sblock.status-stalled { border-color: rgba(239, 107, 115, 0.7); }
+.sblock.status-failed .flow-sub, .sblock.status-stalled .flow-sub { color: var(--red); }
+.sblock.status-skipped { opacity: 0.85; }
+.sblock.status-next { border-color: rgba(108, 182, 255, 0.75); box-shadow: 0 0 0 1px rgba(108, 182, 255, 0.25); }
+.sblock.status-next .flow-sub { color: var(--blue); }
+.sblock.status-running {
+  border-color: rgba(230, 180, 80, 0.85);
+  animation: flow-pulse 1.6s ease-out infinite;
+}
+.sblock.status-running .flow-sub { color: var(--amber); }
+.run-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.run-steps li { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
 .sblock .flow-when {
   color: var(--faint);
   font-size: 10px;

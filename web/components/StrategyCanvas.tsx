@@ -12,6 +12,7 @@ import {
   type StrategyFlow,
 } from "@/lib/strategy-flow";
 import type { Strategy } from "@/lib/strategy";
+import type { BlockStatus } from "@/lib/flow";
 
 const MIN_Z = 0.28;
 const MAX_Z = 2.2;
@@ -66,6 +67,9 @@ export function StrategyCanvas({
   onMove,
   onConnect,
   panelOpen = false,
+  editing = false,
+  runLine,
+  runStatus,
 }: {
   doc: Strategy;
   selectedId: BlockId | null;
@@ -75,6 +79,9 @@ export function StrategyCanvas({
   onMove: (id: BlockId, x: number, y: number) => void;
   onConnect: (from: BlockId, to: BlockId) => void;
   panelOpen?: boolean;
+  editing?: boolean;
+  runLine?: (id: BlockId) => string;
+  runStatus?: (id: BlockId) => BlockStatus;
 }) {
   const stageRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<View>({ x: 24, y: 16, z: 0.85 });
@@ -281,6 +288,7 @@ export function StrategyCanvas({
                   d={d}
                   className={`sedge${selectedLink === id ? " on" : ""}`}
                   onPointerDown={(e) => {
+                    if (!editing) return;
                     e.stopPropagation();
                     onSelectLink(id);
                   }}
@@ -296,29 +304,41 @@ export function StrategyCanvas({
           const meta = BLOCK_META[node.id];
           const on = blockOn(doc, node.id);
           const clock = clockOf(node.id);
+          const live = !editing && node.id !== "profile" ? runStatus?.(node.id) : null;
           return (
             <div
               key={node.id}
               data-node={node.id}
               role="button"
               tabIndex={0}
-              className={`sblock${clock || node.id === "profile" ? " clock" : ""}${on ? "" : " off"}${selectedId === node.id ? " on" : ""}`}
+              className={`sblock${clock || node.id === "profile" ? " clock" : ""}${on ? "" : " off"}${selectedId === node.id ? " on" : ""}${live ? ` status-${live}` : ""}`}
               style={{ left: node.x, top: node.y, width: NODE_W, height: NODE_H }}
-              onPointerDown={(e) => startDrag(e, node.id)}
+              onPointerDown={(e) => {
+                if (!editing) {
+                  e.stopPropagation();
+                  onSelect(node.id);
+                  return;
+                }
+                startDrag(e, node.id);
+              }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") onSelect(node.id);
               }}
             >
               <span className="flow-when">{meta.kicker}</span>
               <span className="flow-title">{meta.title}</span>
-              <span className="flow-sub">{blockDetail(doc, node.id)}</span>
-              <button type="button" className="port in" aria-label={`Connect into ${meta.title}`} tabIndex={-1} />
-              <button
-                type="button"
-                className="port out"
-                aria-label={`Connect from ${meta.title}`}
-                onPointerDown={(e) => startWire(e, node.id)}
-              />
+              <span className="flow-sub">{editing ? blockDetail(doc, node.id) : (runLine?.(node.id) ?? blockDetail(doc, node.id))}</span>
+              {editing ? (
+                <>
+                  <button type="button" className="port in" aria-label={`Connect into ${meta.title}`} tabIndex={-1} />
+                  <button
+                    type="button"
+                    className="port out"
+                    aria-label={`Connect from ${meta.title}`}
+                    onPointerDown={(e) => startWire(e, node.id)}
+                  />
+                </>
+              ) : null}
             </div>
           );
         })}
