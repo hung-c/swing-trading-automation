@@ -22,6 +22,8 @@ import {
   type StrategySectionId,
 } from "@/lib/strategy";
 import type { StrategyReview } from "@/lib/strategy-review";
+import type { FlowPayload } from "@/lib/flow";
+import { deskNote, runDuration, runStamp, runSummary, statusLine, statusWord, strategyBlockRun } from "@/lib/strategy-status";
 
 export function StrategyForm({ initial, id }: { initial: Strategy; id?: string }) {
   const builtin = id === BUILTIN_STRATEGY_ID;
@@ -32,8 +34,10 @@ export function StrategyForm({ initial, id }: { initial: Strategy; id?: string }
   const [busy, setBusy] = useState(false);
   const [evaluating, setEvaluating] = useState(false);
   const [review, setReview] = useState<StrategyReview | null>(null);
-  const [blockId, setBlockId] = useState<BlockId | null>("profile");
+  const [blockId, setBlockId] = useState<BlockId | null>(null);
   const [linkKey, setLinkKey] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [runs, setRuns] = useState<FlowPayload | null>(null);
 
   function payload(): Strategy {
     return {
@@ -105,7 +109,27 @@ export function StrategyForm({ initial, id }: { initial: Strategy; id?: string }
   }
 
   useEffect(() => {
-    if (!linkKey) return;
+    let stop = false;
+    async function load() {
+      try {
+        const res = await fetch("/api/flow", { cache: "no-store" });
+        if (!res.ok) return;
+        const body = (await res.json()) as FlowPayload;
+        if (!stop) setRuns(body);
+      } catch {
+        /* keep the last status */
+      }
+    }
+    void load();
+    const timer = window.setInterval(() => void load(), 15_000);
+    return () => {
+      stop = true;
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!linkKey || !editing) return;
     function onKey(e: KeyboardEvent) {
       if (e.key !== "Delete" && e.key !== "Backspace") return;
       const tag = (e.target as HTMLElement | null)?.tagName;
@@ -119,7 +143,7 @@ export function StrategyForm({ initial, id }: { initial: Strategy; id?: string }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [linkKey]);
+  }, [linkKey, editing]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -181,13 +205,16 @@ export function StrategyForm({ initial, id }: { initial: Strategy; id?: string }
   }
 
   const selected = blockId ? BLOCK_META[blockId] : null;
+  const viewLine = editing
+    ? "Drag the bottom dot onto another block to connect it. Click a block to set it up."
+    : `${deskNote(id, runs)}${runs?.headline ?? "Loading the last run…"}`;
 
   return (
     <form className="flow-page" onSubmit={onSubmit}>
       <div className="flow-bar strategy-bar">
         <div>
           <h1>{doc.profile.name || "New strategy"}</h1>
-          <p>Each column is a job. Drag the bottom dot onto another block to connect it. Click a block to set it up. Scroll to zoom.</p>
+          <p>{viewLine}</p>
         </div>
         <div className="actions">
           {id ? (
@@ -198,25 +225,43 @@ export function StrategyForm({ initial, id }: { initial: Strategy; id?: string }
           <Link className="btn ghost" href="/strategies">
             Back
           </Link>
-          <button className="btn ghost" type="button" disabled={busy || evaluating} onClick={resetLayout}>
-            Reset layout
-          </button>
-          {linkKey ? (
-            <button className="btn ghost" type="button" onClick={() => removeLink(linkKey)}>
-              Remove connection
+          {editing ? (
+            <>
+              <button className="btn ghost" type="button" disabled={busy || evaluating} onClick={resetLayout}>
+                Reset layout
+              </button>
+              {linkKey ? (
+                <button className="btn ghost" type="button" onClick={() => removeLink(linkKey)}>
+                  Remove connection
+                </button>
+              ) : null}
+              <button className="btn ghost" type="button" disabled={busy || evaluating} onClick={onEvaluate}>
+                {evaluating ? "Evaluating…" : "Evaluate"}
+              </button>
+              {id && !builtin ? (
+                <button className="btn danger" type="button" disabled={busy || evaluating} onClick={onDelete}>
+                  Delete
+                </button>
+              ) : null}
+              <button
+                className="btn ghost"
+                type="button"
+                onClick={() => {
+                  setEditing(false);
+                  setLinkKey(null);
+                }}
+              >
+                View
+              </button>
+              <button className="btn" type="submit" disabled={busy || evaluating}>
+                {busy ? "Saving…" : id ? "Save" : "Save strategy"}
+              </button>
+            </>
+          ) : (
+            <button className="btn" type="button" onClick={() => setEditing(true)}>
+              Edit
             </button>
-          ) : null}
-          <button className="btn ghost" type="button" disabled={busy || evaluating} onClick={onEvaluate}>
-            {evaluating ? "Evaluating…" : "Evaluate"}
-          </button>
-          {id && !builtin ? (
-            <button className="btn danger" type="button" disabled={busy || evaluating} onClick={onDelete}>
-              Delete
-            </button>
-          ) : null}
-          <button className="btn" type="submit" disabled={busy || evaluating}>
-            {busy ? "Saving…" : id ? "Save" : "Save strategy"}
-          </button>
+          )}
         </div>
       </div>
       {err ? <p className="strategy-err">{err}</p> : null}
@@ -260,6 +305,9 @@ export function StrategyForm({ initial, id }: { initial: Strategy; id?: string }
         onMove={moveBlock}
         onConnect={connect}
         panelOpen={Boolean(blockId)}
+        editing={editing}
+        runLine={(nodeId) => (nodeId === "profile" ? doc.profile.style : statusLine(strategyBlockRun(runs, nodeId)))}
+        runStatus={(nodeId) => strategyBlockRun(runs, nodeId).status}
       />
       {selected && blockId ? (
         <aside className="flow-panel strategy-setup" onPointerDown={(e) => e.stopPropagation()}>
@@ -272,19 +320,64 @@ export function StrategyForm({ initial, id }: { initial: Strategy; id?: string }
               Close
             </button>
           </div>
-          <BlockSetup
-            block={blockId}
-            doc={doc}
-            flagsText={flagsText}
-            review={review}
-            onFlags={setFlagsText}
-            onClock={setClock}
-            patch={patch}
-            toggleExchange={toggleExchange}
-            togglePattern={togglePattern}
-          />
+          {editing ? (
+            <BlockSetup
+              block={blockId}
+              doc={doc}
+              flagsText={flagsText}
+              review={review}
+              onFlags={setFlagsText}
+              onClock={setClock}
+              patch={patch}
+              toggleExchange={toggleExchange}
+              togglePattern={togglePattern}
+            />
+          ) : (
+            <RunPanel block={blockId} runs={runs} />
+          )}
         </aside>
       ) : null}
     </form>
+  );
+}
+
+function RunPanel({ block, runs }: { block: BlockId; runs: FlowPayload | null }) {
+  const view = strategyBlockRun(runs, block);
+  if (block === "profile") {
+    return <p className="notes">The name and thesis. A run does not apply here. Edit to change them.</p>;
+  }
+  return (
+    <>
+      <span className={`chip ${view.status === "ok" || view.status === "skipped" ? "ok" : view.status === "failed" || view.status === "stalled" ? "bad" : view.status === "running" || view.status === "next" ? "warn" : ""}`}>
+        {statusWord(view.status)}
+      </span>
+      {view.latest ? (
+        <>
+          <dl className="flow-facts">
+            <div><dt>Started</dt><dd>{runStamp(view.latest.startedAt)} ET</dd></div>
+            <div><dt>Finished</dt><dd>{view.latest.finishedAt ? `${runStamp(view.latest.finishedAt)} ET` : "Still running"}</dd></div>
+            <div><dt>Duration</dt><dd>{runDuration(view.latest)}</dd></div>
+          </dl>
+          {runSummary(view.latest.summary) ? <p className="notes">{runSummary(view.latest.summary)}</p> : null}
+          {view.latest.fallback ? <p className="notes">Taken from the last published brief.</p> : null}
+          {view.latest.error ? <pre className="flow-error">{view.latest.error}</pre> : null}
+        </>
+      ) : (
+        <p className="notes">No run recorded for this block yet.</p>
+      )}
+      {view.steps.length ? (
+        <>
+          <h3>Steps</h3>
+          <ul className="run-steps">
+            {view.steps.map((step) => (
+              <li key={step.id}>
+                <span>{step.title}</span>
+                <span className="flow-sub">{step.latest ? statusLine({ status: step.status, latest: step.latest, steps: [] }) : statusWord(step.status)}</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+    </>
   );
 }

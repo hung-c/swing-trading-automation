@@ -34,6 +34,20 @@ export async function GET() {
     return NextResponse.json(buildFlow([], [], now, { configured: false, tableReady: false }));
   }
 
+  let activeStrategy: { id: string; name: string } | null = null;
+  try {
+    const raw = await sql`
+      SELECT id, name FROM strategies
+      WHERE status = 'active'
+      ORDER BY updated_at DESC
+      LIMIT 1
+    `;
+    const row = rows<Record<string, unknown>>(raw)[0];
+    if (row) activeStrategy = { id: String(row.id), name: String(row.name) };
+  } catch {
+    activeStrategy = null;
+  }
+
   let tableReady = true;
   let runs: RunInput[] = [];
   try {
@@ -76,5 +90,7 @@ export async function GET() {
     briefs = [];
   }
 
-  return NextResponse.json(buildFlow(runs, briefs, now, { configured: true, tableReady }));
+  const body = buildFlow(runs, briefs, now, { configured: true, tableReady });
+  body.activeStrategy = activeStrategy;
+  return NextResponse.json(body);
 }
