@@ -6,6 +6,7 @@ import {
   NODE_H,
   NODE_W,
   clockOf,
+  clockWhen,
   isBlockId,
   linkId,
   type BlockId,
@@ -52,7 +53,7 @@ function blockOn(doc: Strategy, id: BlockId): boolean {
 function blockDetail(doc: Strategy, id: BlockId): string {
   const meta = BLOCK_META[id];
   const clock = clockOf(id);
-  if (clock) return doc.flow.clocks[clock].enabled ? meta.when : "Off";
+  if (clock) return doc.flow.clocks[clock].enabled ? clockWhen(clock, doc.flow.clocks[clock]) : "Off";
   if (id === "profile") return doc.profile.style;
   if (!blockOn(doc, id) && id !== "universe" && id !== "risk" && id !== "management") return "Off";
   return meta.when;

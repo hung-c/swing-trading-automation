@@ -12,12 +12,24 @@ PC runs the jobs on Task Scheduler and writes them to Neon. The Next.js app in
 
 ## What runs when (ET, NYSE trading days only)
 
-| Job | When (ET) | What |
+The job PC runs one task, **Swing Tick**, every 15 minutes from 07:03 to 19:03 on weekdays. `swing tick` reads strategies with status `active` and starts whichever of these jobs is due. Start times are edited on each strategy's clock. Draft and paused strategies do not schedule anything. If two active strategies set different times, the earlier start wins.
+
+| Job | Default | What |
 | --- | --- | --- |
-| `swing premarket` | 07:03 | SPY/QQQ vs MA50/MA200, ES/NQ futures, distribution days / follow-through, breadth, Faber 10-mo SMA, macro blackout (CPI/PPI/NFP/GDP/FOMC) -> sizing for today |
-| `swing intraday` | :03/:18/:33/:48, 10:00-15:50 | For each plan: resistance cross, > yesterday close, > VWAP, time-adjusted RVOL > 1.5, no-chase (> +1%) flag; stop / 2R checks for positions. The 15:48 run also does management (failed-breakout exit, sell half at 2R, trail under 8 EMA, earnings <= 2 days) |
-| `swing nightly` | 16:37 (13:37 on early-close days) | Universe -> SIP bars -> Scan A -> weekly clear-sky + overhead supply -> 8-point trend score -> patterns -> plan cards -> news -> Groq prose -> Neon (briefs, plans, chart PNGs) |
-| `swing report` | Fri 17:11 | Expectancy / SQN per pattern from the trade journal |
+| `swing premarket` | once at 07:03 | SPY/QQQ vs MA50/MA200, ES/NQ futures, distribution days / follow-through, breadth, Faber 10-mo SMA, macro blackout (CPI/PPI/NFP/GDP/FOMC) -> sizing for today |
+| `swing intraday` | every 15 min, 10:00-15:50 | For each plan: resistance cross, > yesterday close, > VWAP, time-adjusted RVOL > 1.5, no-chase (> +1%) flag; stop / 2R checks for positions. The pass near the close also does management (failed-breakout exit, sell half at 2R, trail under 8 EMA, earnings <= 2 days) |
+| `swing nightly` | once at 16:37 (13:37 on early-close days) | Universe -> SIP bars -> Scan A -> weekly clear-sky + overhead supply -> 8-point trend score -> patterns -> plan cards -> news -> Groq prose -> Neon (briefs, plans, chart PNGs). A start time other than 16:37 is used as written, including on early-close days. |
+| `swing report` | Friday 17:11, off until a strategy turns it on | Expectancy / SQN per pattern from the trade journal |
+
+A once-a-day job does not run again after it succeeds. A failed run is tried on the next tick. Intraday waits 15 minutes after a success.
+
+Install that task on the job PC (it removes the older Premarket, Intraday, Nightly, and Report tasks):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File C:\swing-trading-strategy\scripts\install-tick.ps1
+```
+
+The PC has to stay logged in and awake. `Get-ScheduledTask -TaskName 'Swing Tick'` should be the only Swing task. GitHub Actions does not schedule these jobs.
 
 All thresholds live in `config.yaml` (account size, risk %, Scan A filters and ladder, pattern geometry, regime table).
 
@@ -83,7 +95,8 @@ src/swing/
   calendars.py       NYSE sessions, early closes, ET clock
   journal.py         Neon journal (sqlite only in tests)
   jobs.py            nightly / premarket / intraday / report
-  cli.py             swing check | should-run | nightly | premarket | intraday | db-init | db-push | report | parity
+  tick.py            15-minute due check over active strategy clocks
+  cli.py             swing check | should-run | tick | nightly | premarket | intraday | db-init | db-push | report | parity
   ...
 web/                 Next.js App Router dashboard (Vercel)
 db/schema.sql        Postgres schema shared with the web app

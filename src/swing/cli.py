@@ -1,4 +1,4 @@
-﻿"""Entry points: `swing nightly | premarket | intraday | report | db-init | check`."""
+﻿"""Entry points: `swing tick | nightly | premarket | intraday | report | db-init | check`."""
 
 from __future__ import annotations
 
@@ -122,6 +122,9 @@ def main(argv: list[str] | None = None) -> int:
     sp = sub.add_parser("report", help="weekly expectancy/SQN report from the journal")
     sp.add_argument("--dry-run", action="store_true")
     sp.set_defaults(fn=lambda a: _lazy("swing.jobs", "run_report")(a))
+
+    sp = sub.add_parser("tick", help="every 15 min: run active-strategy jobs that are due")
+    sp.set_defaults(fn=lambda a: _lazy("swing.tick", "run_tick")(a))
 
     sp = sub.add_parser("parity", help="compare local Scan A with tradingview-screener (optional extra)")
     sp.set_defaults(fn=lambda a: _lazy("swing.extras.parity", "cmd_parity")(a))

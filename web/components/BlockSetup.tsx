@@ -1,5 +1,5 @@
 import { Area, Check, Num, Txt } from "@/components/fields";
-import { CLOCK_COPY, clockOf, type BlockId, type FlowClock } from "@/lib/strategy-flow";
+import { CLOCK_COPY, clockOf, type BlockId, type ClockSchedule, type FlowClock } from "@/lib/strategy-flow";
 import {
   EXCHANGES,
   PATTERN_OPTIONS,
@@ -29,7 +29,7 @@ export function BlockSetup({
   flagsText: string;
   review: StrategyReview | null;
   onFlags: (s: string) => void;
-  onClock: (clock: FlowClock, enabled: boolean) => void;
+  onClock: (clock: FlowClock, patch: Partial<ClockSchedule>) => void;
   patch: <S extends StrategySectionId>(section: S, partial: Partial<Strategy[S]>) => void;
   toggleExchange: (ex: Exchange) => void;
   togglePattern: (key: PatternKey) => void;
@@ -47,8 +47,26 @@ export function BlockSetup({
           <Check
             label="This strategy joins this job"
             checked={doc.flow.clocks[clock].enabled}
-            onChange={(v) => onClock(clock, v)}
+            onChange={(v) => onClock(clock, { enabled: v })}
           />
+          <Txt
+            label="Start"
+            hint="ET, 24-hour. The PC checks every 15 minutes and starts this job on the first check at or after this time."
+            value={doc.flow.clocks[clock].start}
+            onChange={(s) => onClock(clock, { start: s })}
+          />
+          {clock === "intraday" ? (
+            <Txt
+              label="End"
+              hint="ET, 24-hour. Alerts run every 15 minutes until this time."
+              value={doc.flow.clocks[clock].end ?? "15:50"}
+              onChange={(s) => onClock(clock, { end: s })}
+            />
+          ) : null}
+          {clock === "nightly" && doc.flow.clocks[clock].start === "16:37" ? (
+            <p className="notes">On an early-close day this runs at 13:37 ET. Any other start time is used as written.</p>
+          ) : null}
+          {clock === "report" ? <p className="notes">Friday only.</p> : null}
           <p className="notes">The desk still wakes once for everyone. This switch records whether this strategy takes part.</p>
         </>
       ) : null}

@@ -12,6 +12,7 @@ import {
   isBlockId,
   linkId,
   type BlockId,
+  type ClockSchedule,
   type FlowClock,
 } from "@/lib/strategy-flow";
 import {
@@ -96,10 +97,13 @@ export function StrategyForm({ initial, id }: { initial: Strategy; id?: string }
     setLinkKey(null);
   }
 
-  function setClock(clock: FlowClock, enabled: boolean) {
+  function setClock(clock: FlowClock, patch: Partial<ClockSchedule>) {
     setDoc((prev) => ({
       ...prev,
-      flow: { ...prev.flow, clocks: { ...prev.flow.clocks, [clock]: { enabled } } },
+      flow: {
+        ...prev.flow,
+        clocks: { ...prev.flow.clocks, [clock]: { ...prev.flow.clocks[clock], ...patch } },
+      },
     }));
   }
 
