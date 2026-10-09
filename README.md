@@ -6,13 +6,13 @@ writes plan cards, checks market regime, raises intraday alerts and publishes
 English daily briefs to a **Vercel dashboard**. Execution stays manual: you copy
 the plan card into a Webull bracket order.
 
-Vercel cannot run the pandas/Alpaca nightly job (too heavy, too slow). GitHub
-Actions still computes everything and writes it to a Neon Postgres database;
-the Next.js app in `web/` is the reading surface.
+Vercel cannot run the pandas/Alpaca nightly job (too heavy, too slow). A Windows
+PC runs the jobs on Task Scheduler and writes them to Neon. The Next.js app in
+`web/` is the reading surface. GitHub Actions only runs tests on push.
 
 ## What runs when (ET, NYSE trading days only)
 
-| Job | Cron (ET) | What |
+| Job | When (ET) | What |
 | --- | --- | --- |
 | `swing premarket` | 07:03 | SPY/QQQ vs MA50/MA200, ES/NQ futures, distribution days / follow-through, breadth, Faber 10-mo SMA, macro blackout (CPI/PPI/NFP/GDP/FOMC) -> sizing for today |
 | `swing intraday` | :03/:18/:33/:48, 10:00-15:50 | For each plan: resistance cross, > yesterday close, > VWAP, time-adjusted RVOL > 1.5, no-chase (> +1%) flag; stop / 2R checks for positions. The 15:48 run also does management (failed-breakout exit, sell half at 2R, trail under 8 EMA, earnings <= 2 days) |
@@ -42,12 +42,12 @@ All thresholds live in `config.yaml` (account size, risk %, Scan A filters and l
 
 ### 2. Database (Neon, required)
 
-The journal is **only** Neon. GitHub Actions, local `swing nightly`, and the Vercel app all use the same `DATABASE_URL`. SQLite exists solely inside pytest (`path=` tmp files).
+The journal is **only** Neon. The PC jobs, a local `swing nightly`, and the Vercel app all use the same `DATABASE_URL`. SQLite exists solely inside pytest (`path=` tmp files).
 
 1. Create a project at [console.neon.tech](https://console.neon.tech). Copy the connection string (`sslmode=require`).
 2. Put it in `.env` as `DATABASE_URL=...`
 3. `uv run swing db-init` — creates the tables in `db/schema.sql`.
-4. Add the same `DATABASE_URL` as a **GitHub Actions repository secret** and as a **Vercel env var**.
+4. Add the same `DATABASE_URL` as a **Vercel env var**.
 
 If `DATABASE_URL` is missing, jobs refuse to run (they will not fall back to sqlite).
 
@@ -57,9 +57,9 @@ If `DATABASE_URL` is missing, jobs refuse to run (they will not fall back to sql
 2. Set **Root Directory** to `web`.
 3. Environment variables: `DATABASE_URL` (same Neon string) and optional `DASHBOARD_PASSWORD` (gates the UI).
 4. Deploy. Local preview: `cd web && npm install && npm run dev` (needs `web/.env.local` with `DATABASE_URL`).
-5. After the next `swing nightly` (or a workflow_dispatch with `--force`) the Today page fills in.
+5. After the next `swing nightly` the Today page fills in.
 
-Budget is ~900 of the 2,000 GitHub Actions free minutes/month. Vercel Hobby is enough — the app only reads Postgres.
+Vercel Hobby is enough — the app only reads Postgres.
 
 ## Recording trades
 
