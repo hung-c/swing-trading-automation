@@ -98,16 +98,25 @@ export function statusLine(run: BlockRun): string {
   return `${statusWord(run.status)} · ${stamp}`;
 }
 
-export function runStamp(iso: string | null): string {
+function formatRun(iso: string | null, withDate: boolean): string {
   if (!iso) return "—";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleString("en-US", {
     timeZone: "America/New_York",
     weekday: "short",
+    ...(withDate ? { month: "short" as const, day: "numeric" as const } : {}),
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+export function runStamp(iso: string | null): string {
+  return formatRun(iso, false);
+}
+
+export function runWhen(iso: string | null): string {
+  return formatRun(iso, true);
 }
 
 export function runDuration(run: FlowRun): string {

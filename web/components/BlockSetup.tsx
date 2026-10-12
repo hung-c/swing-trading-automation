@@ -70,7 +70,7 @@ export function BlockSetup({
           {clock === "intraday" ? (
             <Pick
               label="End"
-              hint="ET. Alerts run on each tick from the start through this time."
+              hint="ET. Alerts run on each tick from the start through this time. An early close cuts the job off at 1:00 PM."
               value={floorToTick(doc.flow.clocks[clock].end ?? CLOCK_DEFAULTS.intraday.end ?? "15:48")}
               options={TICK_TIMES}
               onChange={(s) => onClock(clock, { end: s })}

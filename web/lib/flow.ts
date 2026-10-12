@@ -1,5 +1,7 @@
 // Step ids match src/swing/jobs.py (NIGHTLY_STEPS, PREMARKET_STEPS, INTRADAY_STEPS, REPORT_STEPS).
 
+import { sessionKind } from "./nyse-calendar";
+
 export type RunStatus = "running" | "ok" | "skipped" | "failed" | "stalled";
 export type BlockStatus = RunStatus | "idle" | "next";
 
@@ -237,6 +239,10 @@ function addDays(y: number, m: number, d: number, n: number): { y: number; m: nu
   return { y: t.getUTCFullYear(), m: t.getUTCMonth() + 1, d: t.getUTCDate() };
 }
 
+function isoDate(y: number, m: number, d: number): string {
+  return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
 export function upcomingSlots(now: Date): { job: string; at: Date }[] {
   const today = etParts(now);
   const start = addDays(Number(today.year), Number(today.month), Number(today.day), -1);
@@ -245,14 +251,18 @@ export function upcomingSlots(now: Date): { job: string; at: Date }[] {
     const day = addDays(start.y, start.m, start.d, i);
     const wd = etParts(wallToDate(day.y, day.m, day.d, 12, 0)).weekday;
     if (wd === "Sat" || wd === "Sun") continue;
+    const kind = sessionKind(isoDate(day.y, day.m, day.d));
+    if (kind === "closed") continue;
+    const early = kind === "early";
     out.push({ job: "premarket", at: wallToDate(day.y, day.m, day.d, 7, 3) });
-    for (let hour = 10; hour <= 15; hour++) {
+    const lastHour = early ? 12 : 15;
+    for (let hour = 10; hour <= lastHour; hour++) {
       for (const minute of [3, 18, 33, 48]) {
         out.push({ job: "intraday", at: wallToDate(day.y, day.m, day.d, hour, minute) });
       }
     }
-    out.push({ job: "nightly", at: wallToDate(day.y, day.m, day.d, 16, 37) });
-    if (wd === "Fri") out.push({ job: "report", at: wallToDate(day.y, day.m, day.d, 17, 11) });
+    out.push({ job: "nightly", at: wallToDate(day.y, day.m, day.d, early ? 13 : 16, 48) });
+    if (wd === "Fri") out.push({ job: "report", at: wallToDate(day.y, day.m, day.d, 17, 18) });
   }
   out.sort((a, b) => a.at.getTime() - b.at.getTime());
   return out;

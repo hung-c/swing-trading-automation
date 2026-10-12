@@ -99,6 +99,14 @@ def test_draft_and_paused_do_not_schedule(tmp_path):
     assert due_jobs(at("17:11"), path=db, early_close=False) == []
 
 
+def test_early_close_intraday_stops_at_1300(tmp_path):
+    db = tmp_path / "j.sqlite"
+    add_strategy(db, "desk", "active", {"intraday": {"enabled": True, "start": "10:03", "end": "15:48"}})
+    assert due_jobs(at("12:48", "2026-11-27"), path=db, early_close=True) == ["intraday"]
+    assert "intraday" not in due_jobs(at("13:03", "2026-11-27"), path=db, early_close=True)
+    assert due_jobs(at("14:18", "2026-10-12"), path=db, early_close=False) == ["intraday"]
+
+
 def test_early_close_nightly_default_is_1348(tmp_path):
     db = tmp_path / "j.sqlite"
     add_strategy(db, "desk", "active", {"nightly": {"enabled": True}})

@@ -104,7 +104,7 @@ export const BLOCK_META: Record<BlockId, { title: string; kicker: string; when: 
 export const CLOCK_COPY: Record<FlowClock, string> = {
   nightly: "After the close. This job builds the universe, scans, and writes plan cards.",
   premarket: "Before the open. This job re-reads the regime and arms the plans from the last nightly run.",
-  intraday: "Every 15 minutes from 10:03 to 15:48 ET. Prices, alerts, and management of open positions.",
+  intraday: "Every 15 minutes from 10:03 to 15:48 ET. On an early-close day the last pass is 12:48. Prices, alerts, and management of open positions.",
   report: "Friday after the close. Expectancy for the names this strategy has traded.",
 };
 
