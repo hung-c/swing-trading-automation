@@ -1,4 +1,8 @@
-"""NYSE trading-day math (holidays, early closes) and ET clock helpers."""
+"""NYSE trading-day math (holidays, early closes) and ET clock helpers.
+
+Equity holidays follow the NYSE calendar, not the federal or bond calendar.
+Columbus Day and Veterans Day are regular sessions. Early-close days end at 13:00 ET.
+"""
 
 from __future__ import annotations
 

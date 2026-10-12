@@ -16,6 +16,9 @@ def test_known_holidays_2026():
     assert not is_trading_day(date(2026, 7, 3))  # Independence Day observed (Jul 4 is Saturday)
     assert not is_trading_day(date(2026, 11, 26))  # Thanksgiving
     assert is_trading_day(date(2026, 10, 7))
+    assert is_trading_day(date(2026, 10, 12))  # Columbus Day: bonds closed, NYSE open
+    assert is_trading_day(date(2026, 11, 11))  # Veterans Day: same
+    assert not is_early_close(date(2026, 10, 12))
 
 
 def test_early_close_days_2026():

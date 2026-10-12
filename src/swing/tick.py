@@ -100,12 +100,15 @@ def _parse_ts(value) -> datetime | None:
     return dt
 
 
-def _in_window(job: str, window: dict, now: datetime) -> bool:
+def _in_window(job: str, window: dict, now: datetime, *, early_close: bool = False) -> bool:
     start: time = window["start"]
     if job == "report" and now.weekday() != 4:
         return False
     if job == "intraday":
         end: time = window["end"] or DEFAULT_INTRADAY_END
+        # The cash session stops at 13:00 on an early-close day. The :48 pass before that is the last one.
+        if early_close:
+            end = min(end, time(13, 0))
         if end < start:
             return False
         return start <= now.time() <= end
@@ -143,7 +146,7 @@ def jobs_due(strategies: list[dict], runs: list[dict], now: datetime, *, early_c
     due: list[str] = []
     for job in JOB_ORDER:
         window = windows.get(job)
-        if window is None or not _in_window(job, window, now):
+        if window is None or not _in_window(job, window, now, early_close=early_close):
             continue
         if _blocked(job, window, runs, now):
             continue

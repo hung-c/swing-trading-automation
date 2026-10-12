@@ -24,7 +24,7 @@ import {
 } from "@/lib/strategy";
 import type { StrategyReview } from "@/lib/strategy-review";
 import type { FlowPayload } from "@/lib/flow";
-import { deskNote, runDuration, runStamp, runSummary, statusLine, statusWord, strategyBlockRun } from "@/lib/strategy-status";
+import { deskNote, runDuration, runSummary, runWhen, statusLine, statusWord, strategyBlockRun } from "@/lib/strategy-status";
 
 export function StrategyForm({ initial, id }: { initial: Strategy; id?: string }) {
   const builtin = id === BUILTIN_STRATEGY_ID;
@@ -358,8 +358,8 @@ function RunPanel({ block, runs }: { block: BlockId; runs: FlowPayload | null })
       {view.latest ? (
         <>
           <dl className="flow-facts">
-            <div><dt>Started</dt><dd>{runStamp(view.latest.startedAt)} ET</dd></div>
-            <div><dt>Finished</dt><dd>{view.latest.finishedAt ? `${runStamp(view.latest.finishedAt)} ET` : "Still running"}</dd></div>
+            <div><dt>Started</dt><dd>{runWhen(view.latest.startedAt)} ET</dd></div>
+            <div><dt>Finished</dt><dd>{view.latest.finishedAt ? `${runWhen(view.latest.finishedAt)} ET` : "Still running"}</dd></div>
             <div><dt>Duration</dt><dd>{runDuration(view.latest)}</dd></div>
           </dl>
           {runSummary(view.latest.summary) ? <p className="notes">{runSummary(view.latest.summary)}</p> : null}
