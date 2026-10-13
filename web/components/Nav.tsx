@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Clock } from "@/components/Clock";
 
 const TABS = [
   ["/", "Today"],
@@ -25,6 +26,7 @@ export function Nav({ active, stamp }: { active: string; stamp?: string | null }
         ))}
         <div className="nav-space" />
         {stamp ? <div className="nav-meta">{stamp}</div> : null}
+        <Clock />
       </div>
     </header>
   );
