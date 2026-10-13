@@ -46,8 +46,10 @@ export function PlanChart({ symbol, pattern, levels }: { symbol: string; pattern
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const modelRef = useRef<DrawInput | null>(null);
   const dragRef = useRef<Drag | null>(null);
+  const cacheRef = useRef<{ symbol: string; frames: Partial<Record<Frame, Bar[]>> }>({ symbol: "", frames: {} });
   const [frame, setFrame] = useState<Frame>("daily");
   const [bars, setBars] = useState<Bar[]>([]);
+  const [daily, setDaily] = useState<Bar[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState("");
   const [view, setView] = useState<View | null>(null);
@@ -71,14 +73,35 @@ export function PlanChart({ symbol, pattern, levels }: { symbol: string; pattern
     setBars([]);
     setView(null);
     setHover(null);
-    fetch(`/api/bars/${encodeURIComponent(symbol)}?frame=${frame}`, { signal: ac.signal })
-      .then(async (r) => {
-        const data = (await r.json()) as { bars?: Bar[]; error?: string };
-        if (!r.ok) throw new Error(data.error || "Could not load bars");
-        return data.bars ?? [];
-      })
-      .then((next) => {
+    if (cacheRef.current.symbol !== symbol) {
+      cacheRef.current = { symbol, frames: {} };
+      setDaily([]);
+    }
+    const bag = cacheRef.current;
+
+    const load = (f: Frame) => {
+      const hit = bag.frames[f];
+      if (hit) return Promise.resolve(hit);
+      return fetch(`/api/bars/${encodeURIComponent(symbol)}?frame=${f}`, { signal: ac.signal })
+        .then(async (r) => {
+          const data = (await r.json()) as { bars?: Bar[]; error?: string };
+          if (!r.ok) throw new Error(data.error || "Could not load bars");
+          return data.bars ?? [];
+        })
+        .then((next) => {
+          bag.frames[f] = next;
+          return next;
+        });
+    };
+
+    const needed: Frame[] = frame === "daily" ? ["daily"] : [frame, "daily"];
+    Promise.all(needed.map((f) => load(f)))
+      .then((loaded) => {
+        if (ac.signal.aborted) return;
+        const byFrame = Object.fromEntries(needed.map((f, i) => [f, loaded[i]])) as Partial<Record<Frame, Bar[]>>;
+        const next = byFrame[frame] ?? [];
         setBars(next);
+        setDaily(byFrame.daily ?? bag.frames.daily ?? []);
         setStatus(next.length ? "ready" : "error");
         if (!next.length) setError("No price bars for this symbol.");
       })
@@ -107,12 +130,13 @@ export function PlanChart({ symbol, pattern, levels }: { symbol: string; pattern
   );
 
   const drawn = useMemo(() => {
-    if (!bars.length || !defaultOn("pattern", frame)) return null;
+    const source = daily.length >= 5 ? daily : frame === "daily" ? bars : [];
+    if (!source.length || !defaultOn("pattern", frame)) return null;
     const kind = patternKindFor(pattern);
-    const anchors = inferPattern(bars, kind, levels.resistance, levels.stop);
+    const anchors = inferPattern(source, kind, levels.resistance, levels.stop);
     if (!anchors.length) return null;
     return { kind, label: shapeLabel(kind, pattern), anchors };
-  }, [bars, frame, pattern, levels.resistance, levels.stop]);
+  }, [daily, bars, frame, pattern, levels.resistance, levels.stop]);
 
   const model = useMemo<DrawInput>(
     () => ({
@@ -327,7 +351,7 @@ export function PlanChart({ symbol, pattern, levels }: { symbol: string; pattern
           </button>
         </div>
       </div>
-      <p className="ichart-hint">Scroll to zoom, drag to pan. Hover a line to see its name, date, and value.</p>
+      <p className="ichart-hint">The pattern is measured on the daily bars and drawn on the same dates here. Scroll to zoom, drag to pan.</p>
       <div className="ichart-readout" aria-live="polite">
         {bar ? (
           <>
