@@ -14,6 +14,8 @@ const GRACE_MS = 5 * 60_000;
 const SLOT_SKEW_MS = 2 * 60_000;
 const STALE_MS = 60 * 60_000;
 const INTERVAL_MS = 15 * 60_000;
+/** Same catch-up as ONCE_CATCH_UP in src/swing/tick.py: stale hour, then one more tick. */
+const CATCH_UP_MIN = STALE_MS / 60_000 + INTERVAL_MS / 60_000;
 
 const DEFAULT_START: Record<JobName, string> = {
   premarket: "07:03",
@@ -311,6 +313,16 @@ function ageMs(iso: string, now: Date): number {
   return now.getTime() - t;
 }
 
+function onceState(start: string, at: Date): "before" | "open" | "after" {
+  const p = etParts(at);
+  const nowMin = p.hour * 60 + p.minute;
+  const startMin = minutes(start);
+  const endMin = startMin + CATCH_UP_MIN;
+  if (nowMin < startMin) return "before";
+  if (nowMin < endMin) return "open";
+  return "after";
+}
+
 function inWindow(job: JobName, window: Window, at: Date, early: boolean): boolean {
   const p = etParts(at);
   const nowMin = p.hour * 60 + p.minute;
@@ -321,7 +333,7 @@ function inWindow(job: JobName, window: Window, at: Date, early: boolean): boole
     if (minutes(end) < minutes(window.start)) return false;
     return minutes(window.start) <= nowMin && nowMin <= minutes(end);
   }
-  return nowMin >= minutes(window.start);
+  return onceState(window.start, at) === "open";
 }
 
 function slotStartMs(at: Date, start: string): number {
@@ -379,11 +391,10 @@ function outlook(strategies: StrategyInput[], runs: TickRun[], at: Date): JobOut
     }
     if (!inWindow(job, window, at, early)) {
       const beforeFriday = job === "report" && etParts(at).weekday !== "Fri";
-      const reason = beforeFriday
-        ? "Friday only"
-        : job === "intraday"
-          ? `Outside ${when}`
-          : `Starts at ${clockLabel(window.start)} ET`;
+      let reason = `Starts at ${clockLabel(window.start)} ET`;
+      if (beforeFriday) reason = "Friday only";
+      else if (job === "intraday") reason = `Outside ${when}`;
+      else if (onceState(window.start, at) === "after") reason = `Outside ${clockLabel(window.start)} ET`;
       return { job, label: JOB_LABEL[job], due: false, when, reason };
     }
     const blocked = blockReason(job, window, runs, at);
