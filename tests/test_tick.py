@@ -86,6 +86,15 @@ def test_intraday_repeats_after_15_minutes(tmp_path):
     assert "intraday" not in due_jobs(at("15:51"), path=db, early_close=False)
 
 
+def test_intraday_late_start_does_not_skip_the_next_slot(tmp_path):
+    """The job row is stamped a few seconds after the tick. That must not eat the next slot."""
+    db = tmp_path / "j.sqlite"
+    add_strategy(db, "desk", "active", {"intraday": {"enabled": True, "start": "10:03", "end": "15:48"}})
+    stamp(db, "intraday", "ok", at("10:03").replace(second=7))
+    assert "intraday" not in due_jobs(at("10:17"), path=db, early_close=False)
+    assert due_jobs(at("10:18").replace(second=1), path=db, early_close=False) == ["intraday"]
+
+
 def test_draft_and_paused_do_not_schedule(tmp_path):
     db = tmp_path / "j.sqlite"
     clocks = {

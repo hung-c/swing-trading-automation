@@ -116,9 +116,23 @@ def _in_window(job: str, window: dict, now: datetime, *, early_close: bool = Fal
     return now.time() >= start
 
 
+def _slot_start(now: datetime, start: time) -> datetime:
+    """Start of the 15-minute slot that contains ``now``, aligned to the strategy clock."""
+    origin = datetime.combine(now.date(), start, tzinfo=now.tzinfo)
+    if now <= origin:
+        return origin
+    elapsed = now - origin
+    return origin + (elapsed // INTERVAL) * INTERVAL
+
+
 def _blocked(job: str, window: dict, runs: list[dict], now: datetime) -> bool:
-    """An ok once-job today, a fresh intraday ok, or a run still inside the last hour blocks a start."""
+    """An ok once-job today, an intraday ok already in this slot, or a run still inside the last hour blocks a start.
+
+    Intraday is once per 15-minute slot. Age from ``started_at`` is a few seconds
+    longer than the gap between ticks, so a raw 15-minute cooldown skips every other slot.
+    """
     start_at = datetime.combine(now.date(), window["start"], tzinfo=now.tzinfo)
+    slot = _slot_start(now, window["start"]) if job == "intraday" else None
     for run in runs:
         if run.get("job") != job or run.get("step") not in (None, ""):
             continue
@@ -133,8 +147,8 @@ def _blocked(job: str, window: dict, runs: list[dict], now: datetime) -> bool:
             return True
         if status != "ok":
             continue
-        if job == "intraday":
-            if age < INTERVAL:
+        if slot is not None:
+            if started >= slot:
                 return True
         elif started >= start_at:
             return True
