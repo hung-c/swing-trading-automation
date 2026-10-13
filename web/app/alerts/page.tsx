@@ -13,12 +13,14 @@ export default async function AlertsPage() {
         <div className="page-head">
           <div>
             <h1>Intraday alerts</h1>
-            <p className="lede">Resistance cross, VWAP, time-adjusted RVOL, no-chase. Actionable rows are the ones to trade.</p>
+            <p className="lede">
+              A ticker alerts only after you save it to the watchlist. It stays on that list until you remove it. Open positions still alert on stop and 2R.
+            </p>
           </div>
         </div>
         {!snap.configured ? <Setup /> : null}
         {snap.configured && !snap.alerts.length ? (
-          <Empty title="No alerts yet" body="The 15-minute job writes one row per symbol/condition/day." />
+          <Empty title="No alerts yet" body="Save a plan to the watchlist. The 15-minute job then writes one row per saved symbol, condition, and day." />
         ) : null}
         {snap.alerts.length ? (
           <div className="card" style={{ padding: 0 }}>

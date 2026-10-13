@@ -151,6 +151,19 @@ def _require_neon() -> None:
     journal.require()
 
 
+def _expire_unsaved(dry_run: bool) -> None:
+    """Scan names that were not saved to the watchlist do not carry into the next day."""
+    if dry_run:
+        return
+    removed = journal.drop_unsaved(today_et())
+    if removed["plans"] or removed["alerts"]:
+        log.info(
+            "removed unsaved names from prior days: %s plans, %s alerts",
+            removed["plans"],
+            removed["alerts"],
+        )
+
+
 def _publish(brief: DailyBrief, dry_run: bool) -> None:
     """The web app reads briefs from the journal DB; this is the whole 'publish' step."""
     if not dry_run:
@@ -216,6 +229,7 @@ def run_nightly(args) -> int:
         with run.step("guard") as st:
             st.summary = {"trading_day": True}
         _require_neon()
+        _expire_unsaved(args.dry_run)
         cfg = load_config()
         ensure_dirs(cfg)
         session = last_completed_session() if not args.force else today_et()
@@ -286,6 +300,7 @@ def run_nightly(args) -> int:
             if not args.dry_run:
                 _store_charts(watch, day)
                 journal.save_plans(session, watch + rejected)
+                journal.refresh_watch(watch, session)
                 journal.kv_set(f"regime:{session.isoformat()}", reg.model_dump(mode="json"))
                 journal.prune()
             _publish(brief, args.dry_run)
@@ -327,6 +342,7 @@ def run_premarket(args) -> int:
         with run.step("guard") as st:
             st.summary = {"trading_day": True}
         _require_neon()
+        _expire_unsaved(args.dry_run)
         cfg = load_config()
         ensure_dirs(cfg)
         today = today_et()
@@ -335,8 +351,8 @@ def run_premarket(args) -> int:
             st.summary = {"sizing": reg.sizing, "max_new": reg.max_new_positions}
         with run.step("plans") as st:
             positions = journal.open_positions()
-            plans = journal.latest_plans("watch")
-            st.summary = {"plans": len(plans), "positions": len(positions)}
+            plans = journal.watchlist_plans()
+            st.summary = {"watchlist": len(plans), "positions": len(positions)}
         with run.step("earnings") as st:
             pos_earn = earnings.upcoming([p.symbol for p in positions], today) if positions else {}
             warn = [f"{s}: earnings in {e.trading_days_away} trading days" for s, e in pos_earn.items() if e.trading_days_away is not None and e.trading_days_away <= cfg.manage.earnings_decision_days]
@@ -385,15 +401,16 @@ def run_intraday(args) -> int:
         with run.step("session") as st:
             st.summary = {"at": now.isoformat()}
         _require_neon()
+        _expire_unsaved(args.dry_run)
         ensure_dirs(cfg)
         with run.step("plans") as st:
-            plans = journal.latest_plans("watch")
+            plans = journal.watchlist_plans()
             positions = journal.open_positions()
             symbols = sorted({p.symbol for p in plans} | {p.symbol for p in positions})
-            st.summary = {"plans": len(plans), "positions": len(positions)}
+            st.summary = {"watchlist": len(plans), "positions": len(positions)}
         if not symbols:
-            log.info("no plans or positions; nothing to watch")
-            reason = {"reason": "no plans or positions"}
+            log.info("no watchlist names or positions; nothing to alert")
+            reason = {"reason": "no watchlist names or positions"}
             run.skip("prices", "alerts", "save", "manage", "eod", summary=reason)
             run.finish("skipped", reason)
             return 0
@@ -421,13 +438,16 @@ def run_intraday(args) -> int:
                 matched = next((p for p in plans if p.symbol == a.symbol), None)
                 if matched and not args.dry_run:
                     ev = evaluate.attach_alert(matched, a, reg, cfg)
-                    pd_ = journal.latest_plan_date()
-                    if ev and pd_:
-                        journal.save_plan_payload(pd_, matched)
-                if a.condition == "breakout_confirmed" and not args.dry_run:
-                    pd_ = journal.latest_plan_date()
-                    if pd_:
-                        journal.update_plan_status(pd_, a.symbol, "triggered")
+                    triggered = a.condition == "breakout_confirmed"
+                    if triggered:
+                        matched.status = "triggered"
+                    if ev or triggered:
+                        journal.update_watch_payload(matched)
+                        pd_ = journal.latest_plan_date()
+                        if pd_ and journal.plan_on(pd_, matched.symbol):
+                            journal.save_plan_payload(pd_, matched)
+                            if matched.status == "triggered":
+                                journal.update_plan_status(pd_, matched.symbol, "triggered")
             if new and not args.dry_run:
                 telegram.push_alerts(new)
             st.summary = {"new": len(new)}

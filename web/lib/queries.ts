@@ -1,6 +1,7 @@
 import type { ApiTest, ApiUsage, AvBudget } from "./apis";
 import { asDate, asObj, first, getSql, rows, toPngBuffer } from "./db";
 import type { AlertRow, DailyBrief, PlanCard, PositionRow, Snapshot, TradeRow } from "./types";
+import { loadWatchlist } from "./watchlist";
 
 function boolish(v: unknown): boolean {
   return v === true || v === 1 || v === "1";
@@ -18,17 +19,19 @@ export async function loadSnapshot(): Promise<Snapshot> {
     prices: {},
     pricesAt: null,
     planDate: null,
+    watchlist: [],
   };
   if (!sql) return empty;
 
   try {
-    const [briefs, alertsRaw, positionsRaw, tradesRaw, priceKv, planDateRow] = await Promise.all([
+    const [briefs, alertsRaw, positionsRaw, tradesRaw, priceKv, planDateRow, watchlist] = await Promise.all([
       sql`SELECT brief_date, kind, payload, created_at FROM briefs ORDER BY brief_date DESC, created_at DESC LIMIT 12`,
       sql`SELECT day, ts, symbol, condition, price, rvol, vwap, actionable, message FROM alerts ORDER BY ts DESC LIMIT 80`,
       sql`SELECT * FROM positions WHERE closed IS NULL ORDER BY opened, symbol`,
       sql`SELECT * FROM trades ORDER BY closed DESC, id DESC LIMIT 50`,
       sql`SELECT v, updated_at FROM kv WHERE k = 'prices' LIMIT 1`,
       sql`SELECT MAX(plan_date) AS d FROM plans`,
+      loadWatchlist(),
     ]);
 
     const parsed = rows<{ kind: string; payload: unknown }>(briefs).map((r) => asObj<DailyBrief>(r.payload));
@@ -72,16 +75,18 @@ export async function loadSnapshot(): Promise<Snapshot> {
     }));
 
     const latestPlan = first<{ d?: unknown }>(planDateRow);
+    const armed = new Set<string>([...watchlist.map((w) => w.symbol), ...positions.map((p) => p.symbol)]);
     return {
       configured: true,
       brief,
       premarket,
-      alerts,
+      alerts: alerts.filter((a) => armed.has(a.symbol)),
       positions,
       trades,
       prices,
       pricesAt,
       planDate: latestPlan?.d ? asDate(latestPlan.d) : brief?.date ?? null,
+      watchlist,
     };
   } catch (e) {
     console.error("loadSnapshot failed", e);

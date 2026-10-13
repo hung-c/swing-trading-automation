@@ -33,6 +33,21 @@ export function etTime(iso: string): string {
   return d.toLocaleString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit" });
 }
 
+export function todayEt(now = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
+}
+
+/** A scan stays on the desk through the session day it was written. The next ET day it is gone. */
+export function scanStillOpen(scanDay: string | null | undefined, now = new Date()): boolean {
+  if (!scanDay) return false;
+  return scanDay.slice(0, 10) >= todayEt(now);
+}
+
 export function etDate(iso: string): string {
   const d = new Date(iso.length === 10 ? `${iso}T16:00:00Z` : iso);
   if (Number.isNaN(d.getTime())) return iso;
