@@ -21,7 +21,7 @@ The job PC runs one task, **Swing Tick**, every 15 minutes from 07:03 to 19:03 o
 | `swing nightly` | once at 16:48 (13:48 on early-close days) | Universe -> SIP bars -> Scan A -> weekly clear-sky + overhead supply -> 8-point trend score -> patterns -> plan cards -> news -> Groq prose -> Neon (briefs, plans, chart PNGs). A start time other than 16:48 is used as written, including on early-close days. A strategy still saved as 16:37 moves to 13:37. |
 | `swing report` | Friday 17:18, off until a strategy turns it on | Expectancy / SQN per pattern from the trade journal |
 
-A once-a-day job does not run again after it succeeds. A failed run is tried on the next tick. Intraday waits 15 minutes after a success.
+A once-a-day job does not run again after it succeeds. A failed run is tried on the next tick. Intraday runs once on each 15-minute tick.
 
 Install that task on the job PC (it removes the older Premarket, Intraday, Nightly, and Report tasks):
 

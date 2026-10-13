@@ -324,10 +324,20 @@ function inWindow(job: JobName, window: Window, at: Date, early: boolean): boole
   return nowMin >= minutes(window.start);
 }
 
+function slotStartMs(at: Date, start: string): number {
+  const p = etParts(at);
+  const [hour, minute] = start.split(":").map(Number);
+  const origin = wallToDate(p.year, p.month, p.day, hour, minute).getTime();
+  if (at.getTime() <= origin) return origin;
+  const elapsed = at.getTime() - origin;
+  return origin + Math.floor(elapsed / INTERVAL_MS) * INTERVAL_MS;
+}
+
 function blockReason(job: JobName, window: Window, runs: TickRun[], at: Date): string | null {
   const p = etParts(at);
   const [hour, minute] = window.start.split(":").map(Number);
   const startAt = wallToDate(p.year, p.month, p.day, hour, minute).getTime();
+  const slot = job === "intraday" ? slotStartMs(at, window.start) : null;
   for (const run of runs) {
     if (run.job !== job || run.step) continue;
     const started = new Date(run.startedAt).getTime();
@@ -336,8 +346,8 @@ function blockReason(job: JobName, window: Window, runs: TickRun[], at: Date): s
     if (age < 0) continue;
     if (run.status === "running" && age < STALE_MS) return "Already running";
     if (run.status !== "ok") continue;
-    if (job === "intraday") {
-      if (age < INTERVAL_MS) return "Ran less than 15 minutes ago";
+    if (slot !== null) {
+      if (started >= slot) return "Already ran this 15-minute slot";
     } else if (started >= startAt) {
       return "Already finished today";
     }
