@@ -75,6 +75,23 @@ def test_failed_once_job_retries(tmp_path):
     assert due_jobs(at("07:18"), path=db, early_close=False) == ["premarket"]
 
 
+def test_once_job_does_not_run_after_its_window(tmp_path):
+    db = tmp_path / "j.sqlite"
+    add_strategy(
+        db,
+        "desk",
+        "active",
+        {
+            "premarket": {"enabled": True, "start": "07:03"},
+            "nightly": {"enabled": True, "start": "16:37"},
+        },
+    )
+    assert due_jobs(at("08:03"), path=db, early_close=False) == ["premarket"]
+    assert "premarket" not in due_jobs(at("08:18"), path=db, early_close=False)
+    assert due_jobs(at("16:18"), path=db, early_close=False) == []
+    assert due_jobs(at("16:37"), path=db, early_close=False) == ["nightly"]
+
+
 def test_intraday_repeats_after_15_minutes(tmp_path):
     db = tmp_path / "j.sqlite"
     add_strategy(db, "desk", "active", {"intraday": {"enabled": True, "start": "10:00", "end": "15:50"}})

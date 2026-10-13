@@ -36,6 +36,9 @@ NIGHTLY_SHIFTS = {
 }
 RUN_STALE = timedelta(minutes=60)
 INTERVAL = timedelta(minutes=15)
+# A failed or stuck once-job may retry on later ticks. The window closes after the
+# hour-long stale limit plus one more tick, so a morning job does not run in the afternoon.
+ONCE_CATCH_UP = RUN_STALE + INTERVAL
 
 
 def _parse_hhmm(value, fallback: time) -> time:
@@ -101,6 +104,12 @@ def _parse_ts(value) -> datetime | None:
     return dt
 
 
+def _once_open(start: time, now: datetime) -> bool:
+    """True from the clock time until the catch-up window ends. Both instants are on ``now``'s date."""
+    origin = datetime.combine(now.date(), start, tzinfo=now.tzinfo)
+    return origin <= now < origin + ONCE_CATCH_UP
+
+
 def _in_window(job: str, window: dict, now: datetime, *, early_close: bool = False) -> bool:
     start: time = window["start"]
     if job == "report" and now.weekday() != 4:
@@ -113,7 +122,7 @@ def _in_window(job: str, window: dict, now: datetime, *, early_close: bool = Fal
         if end < start:
             return False
         return start <= now.time() <= end
-    return now.time() >= start
+    return _once_open(start, now)
 
 
 def _slot_start(now: datetime, start: time) -> datetime:
