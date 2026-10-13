@@ -25,6 +25,8 @@ CREATE TABLE IF NOT EXISTS plans (
   plan_date TEXT NOT NULL, symbol TEXT NOT NULL, pattern TEXT, resistance REAL, entry REAL, stop REAL,
   shares INTEGER, target_2r REAL, status TEXT, quality REAL, trend_score INTEGER, sector TEXT, earnings_date TEXT,
   payload TEXT NOT NULL, PRIMARY KEY (plan_date, symbol));
+CREATE TABLE IF NOT EXISTS watchlist (
+  symbol TEXT PRIMARY KEY, saved_at TEXT NOT NULL, plan_date TEXT, payload TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS positions (
   symbol TEXT PRIMARY KEY, opened TEXT, entry REAL, stop REAL, initial_stop REAL, shares REAL, target_2r REAL,
   pattern TEXT, sector TEXT, half_sold INTEGER DEFAULT 0, closed TEXT, exit_price REAL, r_multiple REAL, resistance REAL);
@@ -255,7 +257,7 @@ def plans_for(plan_date: date, status: str | None = None, path: Path | None = No
 
 
 def latest_plans(status: str = "watch", path: Path | None = None) -> list[PlanCard]:
-    """Plans from the most recent plan_date with the given status (the watchlist for today)."""
+    """Plans from the most recent plan_date with the given status (that day's scan)."""
     d = latest_plan_date(path)
     return plans_for(d, status, path) if d else []
 
@@ -324,6 +326,83 @@ def update_plan_status(plan_date: date, symbol: str, status: str, path: Path | N
             "UPDATE plans SET status=?, payload=? WHERE plan_date=? AND symbol=?",
             (status, _json_param(db, p.model_dump(mode="json")), plan_date.isoformat(), symbol),
         )
+
+
+# ---------- watchlist ----------
+def watchlist_symbols(path: Path | None = None) -> set[str]:
+    with connect(path) as db:
+        rows = db.all("SELECT symbol FROM watchlist")
+    return {str(r["symbol"]) for r in rows}
+
+
+def watchlist_plans(path: Path | None = None) -> list[PlanCard]:
+    """Saved names. Membership lasts until delete_watch; the payload is what alerts evaluate."""
+    with connect(path) as db:
+        rows = db.all("SELECT payload FROM watchlist ORDER BY saved_at, symbol")
+    return [PlanCard.model_validate(_json(r["payload"])) for r in rows]
+
+
+def save_watch(plan: PlanCard, plan_date: date | None, path: Path | None = None) -> None:
+    """Insert a saved name, or refresh its plan. saved_at stays on the original save."""
+    with connect(path) as db:
+        db.execute(
+            """INSERT INTO watchlist (symbol, saved_at, plan_date, payload)
+               VALUES (?,?,?,?)
+               ON CONFLICT (symbol) DO UPDATE SET plan_date=excluded.plan_date, payload=excluded.payload""",
+            (
+                plan.symbol,
+                datetime.now(UTC).isoformat(),
+                plan_date.isoformat() if plan_date else None,
+                _json_param(db, plan.model_dump(mode="json")),
+            ),
+        )
+
+
+def update_watch_payload(plan: PlanCard, path: Path | None = None) -> None:
+    """Write a new card onto an existing watchlist row without moving plan_date or saved_at."""
+    with connect(path) as db:
+        db.execute(
+            "UPDATE watchlist SET payload=? WHERE symbol=?",
+            (_json_param(db, plan.model_dump(mode="json")), plan.symbol),
+        )
+
+
+def delete_watch(symbol: str, path: Path | None = None) -> bool:
+    with connect(path) as db:
+        removed = db.execute("DELETE FROM watchlist WHERE symbol=?", (symbol.upper(),)).rowcount
+    return removed == 1
+
+
+def refresh_watch(plans: list[PlanCard], plan_date: date, path: Path | None = None) -> int:
+    """Update cards for names already saved. Does not add scan hits on its own."""
+    saved = watchlist_symbols(path)
+    n = 0
+    for plan in plans:
+        if plan.symbol in saved and plan.status != "rejected":
+            save_watch(plan, plan_date, path)
+            n += 1
+    return n
+
+
+def drop_unsaved(before: date, path: Path | None = None) -> dict[str, int]:
+    """Drop scan plans and alerts from before `before` whose symbol was never saved.
+
+    Open-position alerts stay. Watchlist rows stay.
+    """
+    day = before.isoformat()
+    with connect(path) as db:
+        plans = db.execute(
+            """DELETE FROM plans WHERE plan_date < ?
+               AND symbol NOT IN (SELECT symbol FROM watchlist)""",
+            (day,),
+        ).rowcount
+        alerts_n = db.execute(
+            """DELETE FROM alerts WHERE day < ?
+               AND symbol NOT IN (SELECT symbol FROM watchlist)
+               AND symbol NOT IN (SELECT symbol FROM positions WHERE closed IS NULL)""",
+            (day,),
+        ).rowcount
+    return {"plans": max(plans, 0), "alerts": max(alerts_n, 0)}
 
 
 # ---------- positions ----------

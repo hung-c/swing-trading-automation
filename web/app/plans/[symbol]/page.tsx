@@ -2,15 +2,18 @@ import Link from "next/link";
 import { Nav } from "@/components/Nav";
 import { PlanCard } from "@/components/PlanCard";
 import { PlanChart } from "@/components/PlanChart";
+import { WatchButton } from "@/components/WatchButton";
 import { loadPlan, loadSnapshot } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
 export default async function PlanDetail({ params }: { params: Promise<{ symbol: string }> }) {
   const { symbol } = await params;
-  const [found, snap] = await Promise.all([loadPlan(symbol), loadSnapshot()]);
-  const plan = found?.plan;
-  const day = found?.day ?? snap.planDate ?? snap.brief?.date;
+  const sym = symbol.toUpperCase();
+  const [found, snap] = await Promise.all([loadPlan(sym), loadSnapshot()]);
+  const saved = snap.watchlist.find((w) => w.symbol === sym);
+  const plan = saved?.plan ?? found?.plan;
+  const day = found?.day ?? saved?.planDate ?? snap.planDate ?? snap.brief?.date;
   const kinds = plan?.chart_paths ? Object.keys(plan.chart_paths) : ["weekly", "daily", "intraday"];
 
   return (
@@ -25,7 +28,10 @@ export default async function PlanDetail({ params }: { params: Promise<{ symbol:
             <div className="page-head">
               <h1 style={{ margin: 0 }}>{plan.symbol}</h1>
             </div>
-            <PlanCard plan={plan} price={snap.prices[plan.symbol]} />
+            <div className="plan-slot">
+              <PlanCard plan={plan} price={snap.prices[plan.symbol]} />
+              {saved || plan.status !== "rejected" ? <WatchButton symbol={plan.symbol} saved={Boolean(saved)} /> : null}
+            </div>
             <div style={{ marginTop: 16 }}>
               <PlanChart
                 symbol={plan.symbol}

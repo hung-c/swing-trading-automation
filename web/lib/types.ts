@@ -172,6 +172,13 @@ export type DailyBrief = {
   warnings?: string[];
 };
 
+export type WatchItem = {
+  symbol: string;
+  savedAt: string;
+  planDate: string | null;
+  plan: PlanCard;
+};
+
 export type Snapshot = {
   configured: boolean;
   brief: DailyBrief | null;
@@ -182,4 +189,5 @@ export type Snapshot = {
   prices: Record<string, number>;
   pricesAt: string | null;
   planDate: string | null;
+  watchlist: WatchItem[];
 };

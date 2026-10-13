@@ -19,6 +19,15 @@ CREATE TABLE IF NOT EXISTS plans (
   PRIMARY KEY (plan_date, symbol)
 );
 
+-- Names the user saved. Alerts use this list until the row is deleted.
+-- Scan plans that were never saved are removed after that session day.
+CREATE TABLE IF NOT EXISTS watchlist (
+  symbol     TEXT PRIMARY KEY,
+  saved_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  plan_date  DATE,
+  payload    JSONB NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS positions (
   symbol       TEXT PRIMARY KEY,
   opened       DATE,

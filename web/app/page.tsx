@@ -1,5 +1,5 @@
 import { Empty, Nav, Setup } from "@/components/Nav";
-import { PlanCard } from "@/components/PlanCard";
+import { PlanBoard } from "@/components/PlanBoard";
 import { RegimeBanner } from "@/components/RegimeBanner";
 import { etDate, num, usd } from "@/lib/format";
 import { loadSnapshot } from "@/lib/queries";
@@ -57,15 +57,14 @@ export default async function TodayPage() {
               <p className="warn-list">{b.warnings.join(" · ")}</p>
             ) : null}
 
-            <h3 style={{ margin: "22px 0 10px" }}>Watchlist</h3>
-            <p className="lede" style={{ marginBottom: 12 }}>
-              {b.prose?.watchlist_commentary}
-            </p>
-            <div className="grid grid-2">
-              {(b.plans ?? []).map((p) => (
-                <PlanCard key={p.symbol} plan={p} price={snap.prices[p.symbol]} href={`/plans/${p.symbol}`} />
-              ))}
-            </div>
+            <PlanBoard
+              plans={b.plans}
+              rejected={b.rejected}
+              watchlist={snap.watchlist}
+              prices={snap.prices}
+              scanDay={b.date}
+              commentary={b.prose?.watchlist_commentary}
+            />
 
             <div className="grid grid-2" style={{ marginTop: 18 }}>
               <section className="card prose">

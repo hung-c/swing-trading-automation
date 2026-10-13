@@ -1,5 +1,5 @@
-import { Empty, Nav, Setup } from "@/components/Nav";
-import { PlanCard } from "@/components/PlanCard";
+import { Nav, Setup } from "@/components/Nav";
+import { PlanBoard } from "@/components/PlanBoard";
 import { etDate } from "@/lib/format";
 import { loadSnapshot } from "@/lib/queries";
 
@@ -15,29 +15,20 @@ export default async function PlansPage() {
         <div className="page-head">
           <div>
             <h1>Plan cards</h1>
-            <p className="lede">Copy entry / stop / 2R into a Webull bracket. Do not chase more than 1% through entry.</p>
+            <p className="lede">
+              Save a ticker to the watchlist to arm alerts. It stays until you remove it. Names you leave unsaved are removed after that day.
+            </p>
           </div>
         </div>
         {!snap.configured ? <Setup /> : null}
-        {snap.configured && !b?.plans?.length && !b?.rejected?.length ? (
-          <Empty title="No plans yet" body="The nightly job writes watch and rejected cards into the journal." />
-        ) : null}
-        {b?.plans?.length ? (
-          <div className="grid grid-2">
-            {b.plans.map((p) => (
-              <PlanCard key={p.symbol} plan={p} price={snap.prices[p.symbol]} href={`/plans/${p.symbol}`} />
-            ))}
-          </div>
-        ) : null}
-        {b?.rejected?.length ? (
-          <>
-            <h3 style={{ margin: "28px 0 10px" }}>Rejected</h3>
-            <div className="grid grid-2">
-              {b.rejected.map((p) => (
-                <PlanCard key={p.symbol} plan={p} />
-              ))}
-            </div>
-          </>
+        {snap.configured ? (
+          <PlanBoard
+            plans={b?.plans}
+            rejected={b?.rejected}
+            watchlist={snap.watchlist}
+            prices={snap.prices}
+            scanDay={b?.date ?? null}
+          />
         ) : null}
       </main>
     </>
