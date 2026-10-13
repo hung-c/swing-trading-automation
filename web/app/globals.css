@@ -38,7 +38,7 @@ button, input, select { font: inherit; }
   background: rgba(12, 16, 20, 0.82);
   border-bottom: 1px solid var(--line);
 }
-.nav-inner { max-width: 1180px; margin: 0 auto; padding: 12px 20px; display: flex; align-items: center; gap: 18px; }
+.nav-inner { max-width: 1180px; margin: 0 auto; padding: 12px 20px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; row-gap: 8px; }
 .brand { font-weight: 600; letter-spacing: 0.04em; display: flex; align-items: baseline; gap: 8px; }
 .brand small { color: var(--muted); font-weight: 400; letter-spacing: 0; font-size: 12px; }
 .nav a.tab { color: var(--muted); padding: 6px 8px; border-radius: 8px; font-size: 14px; }
@@ -98,6 +98,9 @@ button, input, select { font: inherit; }
 .banner.full { background: var(--green-dim); border-color: rgba(61, 207, 142, 0.35); }
 .banner.half { background: var(--amber-dim); border-color: rgba(230, 180, 80, 0.4); }
 .banner.none { background: var(--red-dim); border-color: rgba(239, 107, 115, 0.4); }
+.banner.live { background: rgba(108, 182, 255, 0.12); border-color: rgba(108, 182, 255, 0.4); }
+.remain { font-variant-numeric: tabular-nums; }
+.pc-note { color: var(--muted); font-size: 13px; max-width: 42ch; }
 .banner h2 { margin: 0 0 4px; font-size: 18px; }
 .pills { display: flex; flex-wrap: wrap; gap: 6px; }
 .pill {

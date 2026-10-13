@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import socket
 from datetime import UTC, datetime, time, timedelta
 from pathlib import Path
 
@@ -165,40 +166,79 @@ def _runner_args() -> argparse.Namespace:
     return argparse.Namespace(dry_run=False, force=False, limit=None, manage=False, from_tick=True)
 
 
-def run_tick(args) -> int:
-    """Exit immediately on a closed session. Otherwise run each due job, in order."""
-    now = now_et()
-    if not is_trading_day(now.date()):
-        log.info("not a trading day (%s); tick exits", now.date())
-        print(f"tick: not a trading day ({now.date()})")
-        return 0
-    path = getattr(args, "path", None)
-    due = due_jobs(now, path=path, early_close=is_early_close(now.date()))
-    if not due:
-        print(f"tick {now:%H:%M} ET: nothing due")
-        return 0
-    print(f"tick {now:%H:%M} ET: {', '.join(due)}")
-    from swing import jobs
-    from swing.data.usage import flush
+def _utc() -> str:
+    return datetime.now(UTC).isoformat()
 
-    runners = {
-        "premarket": jobs.run_premarket,
-        "intraday": jobs.run_intraday,
-        "nightly": jobs.run_nightly,
-        "report": jobs.run_report,
-    }
-    failed = False
-    for job in due:
-        try:
-            rc = runners[job](_runner_args())
-            if rc:
-                failed = True
-        except Exception:
-            log.exception("tick job %s failed", job)
-            failed = True
-        finally:
+
+def _heartbeat(path: Path | None, payload: dict) -> None:
+    """One kv row, `tick`, so the dashboard can see the PC between jobs."""
+    try:
+        journal.kv_set("tick", payload, path=path)
+    except Exception:
+        log.exception("tick heartbeat failed")
+
+
+def run_tick(args) -> int:
+    """Exit immediately on a closed session. Otherwise run each due job, in order.
+
+    Every exit writes the `tick` kv row: running while jobs are in progress, then idle, ok, or failed.
+    """
+    now = now_et()
+    path = getattr(args, "path", None)
+    started = _utc()
+    host = socket.gethostname()
+
+    def beat(**extra) -> None:
+        _heartbeat(path, {"host": host, "started_at": started, "at": now.isoformat(), **extra})
+
+    if not is_trading_day(now.date()):
+        msg = f"not a trading day ({now.date()})"
+        log.info("not a trading day (%s); tick exits", now.date())
+        print(f"tick: {msg}")
+        beat(status="idle", finished_at=_utc(), due=[], message=msg, exit=0)
+        return 0
+
+    beat(status="running", finished_at=None, due=[], message=f"tick {now:%H:%M} ET", exit=None)
+    try:
+        due = due_jobs(now, path=path, early_close=is_early_close(now.date()))
+        if not due:
+            print(f"tick {now:%H:%M} ET: nothing due")
+            beat(status="idle", finished_at=_utc(), due=[], message="nothing due", exit=0)
+            return 0
+        print(f"tick {now:%H:%M} ET: {', '.join(due)}")
+        beat(
+            status="running",
+            finished_at=None,
+            due=list(due),
+            message=f"tick {now:%H:%M} ET: {', '.join(due)}",
+            exit=None,
+        )
+        from swing import jobs
+        from swing.data.usage import flush
+
+        runners = {
+            "premarket": jobs.run_premarket,
+            "intraday": jobs.run_intraday,
+            "nightly": jobs.run_nightly,
+            "report": jobs.run_report,
+        }
+        failed = False
+        for job in due:
             try:
-                flush(path=path, job=job)
+                rc = runners[job](_runner_args())
+                if rc:
+                    failed = True
             except Exception:
-                log.exception("usage flush for %s failed", job)
-    return 1 if failed else 0
+                log.exception("tick job %s failed", job)
+                failed = True
+            finally:
+                try:
+                    flush(path=path, job=job)
+                except Exception:
+                    log.exception("usage flush for %s failed", job)
+        status = "failed" if failed else "ok"
+        beat(status=status, finished_at=_utc(), due=list(due), message=", ".join(due), exit=1 if failed else 0)
+        return 1 if failed else 0
+    except Exception as exc:
+        beat(status="failed", finished_at=_utc(), due=[], message=str(exc)[:500], exit=1)
+        raise
