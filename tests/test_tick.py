@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from swing import journal
-from swing.tick import due_jobs
+from swing.tick import due_jobs, run_tick
 
 ET = ZoneInfo("America/New_York")
 
@@ -136,6 +137,60 @@ def test_earliest_start_across_active_strategies(tmp_path):
     add_strategy(db, "early", "active", {"premarket": {"enabled": True, "start": "07:30"}})
     assert "premarket" not in due_jobs(at("07:15"), path=db, early_close=False)
     assert due_jobs(at("07:30"), path=db, early_close=False) == ["premarket"]
+
+
+def test_tick_heartbeat_on_a_closed_day(tmp_path, monkeypatch):
+    db = tmp_path / "j.sqlite"
+    monkeypatch.setattr("swing.tick.now_et", lambda: at("09:18", "2026-10-10"))
+    monkeypatch.setattr("swing.tick.is_trading_day", lambda _day: False)
+    assert run_tick(argparse.Namespace(path=db)) == 0
+    beat = journal.kv_get("tick", path=db)
+    assert beat["status"] == "idle"
+    assert beat["due"] == []
+    assert beat["exit"] == 0
+    assert "not a trading day" in beat["message"]
+    assert beat["finished_at"]
+    assert beat["host"]
+
+
+def test_tick_heartbeat_when_nothing_is_due(tmp_path, monkeypatch):
+    db = tmp_path / "j.sqlite"
+    add_strategy(db, "desk", "active", {"premarket": {"enabled": True, "start": "07:03"}})
+    stamp(db, "premarket", "ok", at("07:03"))
+    monkeypatch.setattr("swing.tick.now_et", lambda: at("09:18"))
+    monkeypatch.setattr("swing.tick.is_trading_day", lambda _day: True)
+    monkeypatch.setattr("swing.tick.is_early_close", lambda _day: False)
+    assert run_tick(argparse.Namespace(path=db)) == 0
+    beat = journal.kv_get("tick", path=db)
+    assert beat["status"] == "idle"
+    assert beat["due"] == []
+    assert beat["message"] == "nothing due"
+
+
+def test_tick_heartbeat_while_a_job_runs(tmp_path, monkeypatch):
+    db = tmp_path / "j.sqlite"
+    add_strategy(db, "desk", "active", {"premarket": {"enabled": True, "start": "07:03"}})
+    monkeypatch.setattr("swing.tick.now_et", lambda: at("07:03"))
+    monkeypatch.setattr("swing.tick.is_trading_day", lambda _day: True)
+    monkeypatch.setattr("swing.tick.is_early_close", lambda _day: False)
+    monkeypatch.setattr("swing.data.usage.flush", lambda **_kwargs: None)
+    seen = {}
+
+    def fake(_args):
+        seen["mid"] = journal.kv_get("tick", path=db)
+        return 0
+
+    import swing.jobs as jobs
+
+    monkeypatch.setattr(jobs, "run_premarket", fake)
+    assert run_tick(argparse.Namespace(path=db)) == 0
+    assert seen["mid"]["status"] == "running"
+    assert seen["mid"]["due"] == ["premarket"]
+    beat = journal.kv_get("tick", path=db)
+    assert beat["status"] == "ok"
+    assert beat["due"] == ["premarket"]
+    assert beat["exit"] == 0
+    assert beat["finished_at"]
 
 
 def test_report_only_on_friday(tmp_path):
