@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 const FRAMES: Record<Frame, { interval: string; range: string }> = {
   daily: { interval: "1d", range: "2y" },
   weekly: { interval: "1wk", range: "5y" },
-  intraday: { interval: "15m", range: "5d" },
+  intraday: { interval: "15m", range: "60d" },
 };
 
 type YahooChart = {

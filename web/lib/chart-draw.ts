@@ -1,5 +1,5 @@
 import type { Anchor, Bar, Frame, PatternKind } from "./chart-math";
-import { clampWindow, formatAxisTime, formatPx, indexAtTime, niceTicks, timeAtIndex } from "./chart-math";
+import { clampWindow, formatAxisTime, formatPx, indexAtTime, niceTicks, patternViewStart, timeAtIndex } from "./chart-math";
 
 export type View = { i0: number; i1: number; y0: number; y1: number; yAuto: boolean };
 
@@ -79,10 +79,13 @@ export function resolveView(input: DrawInput, extras: number[]): View | null {
   const { bars, view, frame } = input;
   if (!bars.length) return null;
   if (!view) {
-    const want = frame === "daily" ? 130 : frame === "weekly" ? 160 : Math.max(20, bars.length);
+    const anchors = input.pattern?.anchors ?? [];
     const i1 = bars.length - 1 + 1.2;
-    const i0 = i1 - Math.min(want, bars.length + 2);
-    return { i0, i1, ...yRange(bars, i0, i1, extras), yAuto: true };
+    const i0 = anchors.length
+      ? indexAtTime(bars, patternViewStart(anchors, bars[bars.length - 1].t)) - 0.6
+      : i1 - Math.min(frame === "daily" ? 130 : frame === "weekly" ? 160 : Math.max(20, bars.length), bars.length + 2);
+    const next = clampWindow(i0, i1, bars.length);
+    return { ...next, ...yRange(bars, next.i0, next.i1, extras), yAuto: true };
   }
   if (!view.yAuto) return view;
   return { ...view, ...yRange(bars, view.i0, view.i1, extras) };
@@ -355,7 +358,7 @@ function draw(ctx: CanvasRenderingContext2D, input: DrawInput, m: Measure) {
   }
 
   const slot = price.w / Math.max(view.i1 - view.i0, 1);
-  const cw = Math.max(1.25, Math.min(12, slot * 0.66));
+  const cw = Math.max(0.45, Math.min(12, slot * 0.66));
   ctx.lineWidth = 1;
   for (let i = i0; i <= i1; i++) {
     const b = bars[i];

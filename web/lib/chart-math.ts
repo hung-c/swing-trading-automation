@@ -373,6 +373,16 @@ export function inferPattern(bars: Bar[], kind: PatternKind, resistance: number,
   return inferBox(bars, resistance, stop);
 }
 
+const DAY_MS = 86_400_000;
+
+/** Same calendar start for every frame: the pattern sits on the right quarter, and the left edge never cuts it off. */
+export function patternViewStart(anchors: Anchor[], lastT: number): number {
+  const start = Math.min(...anchors.map((a) => a.t));
+  const end = Math.max(lastT, ...anchors.map((a) => a.t));
+  const span = Math.max(end - start, 21 * DAY_MS);
+  return Math.min(end - span * 4, start);
+}
+
 export function clampWindow(i0: number, i1: number, n: number): { i0: number; i1: number } {
   const span = Math.max(8, i1 - i0);
   let a = i0;
