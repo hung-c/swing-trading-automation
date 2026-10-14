@@ -4,18 +4,18 @@ import type { PlanCard as Plan } from "@/lib/types";
 
 export function PlanCard({ plan, price, href }: { plan: Plan; price?: number; href?: string }) {
   const dist = distanceToEntry(plan, price);
+  const strategies = (plan.strategy_name ?? "")
+    .split("·")
+    .map((name) => name.trim())
+    .filter(Boolean);
   const inner = (
     <>
       <div className="plan-top">
-        <div>
+        <div className="plan-id">
           <div className="sym">{plan.symbol}</div>
-          {plan.strategy_name ? (
-            <div className="plan-strategy">
-              <span className="strategy-kicker">Strategy</span>
-              {plan.strategy_name}
-            </div>
-          ) : null}
           <div className="pat">
+            {strategies.length ? <span className="plan-strategy">{strategies.join(" · ")}</span> : null}
+            {strategies.length ? " · " : ""}
             {patternName(plan.pattern)} · q {num(plan.pattern_quality, 1)}/10 · trend {plan.trend_score}/8
             {plan.sector ? ` · ${plan.sector}` : ""}
           </div>
@@ -48,28 +48,63 @@ export function PlanCard({ plan, price, href }: { plan: Plan; price?: number; hr
           <div className="v">{usd(plan.target_2r)}</div>
         </div>
       </div>
+    </>
+  );
+  const extra = (
+    <>
       {plan.rejected_reason ? <p className="notes">{plan.rejected_reason}</p> : null}
-      {plan.notes?.length ? <p className="notes">{plan.notes.join(" · ")}</p> : null}
+      {plan.notes?.length ? (
+        <details className="plan-drop">
+          <summary>
+            Notes
+            <span className="plan-drop-count">{plan.notes.length}</span>
+          </summary>
+          <ul className="plan-notes">
+            {plan.notes.map((note) => (
+              <li key={note}>{note}</li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
       {plan.evaluations?.map((ev) => (
-        <div key={ev.gate} className="eval">
-          <div className="pills">
-            <span className={`chip ${ev.verdict === "take" ? "ok" : ev.verdict === "skip" ? "bad" : "warn"}`}>AI {ev.verdict}</span>
-            <span className="chip">{ev.gate === "plan_card" ? "plan card" : ev.gate === "actionable_alert" ? "alert" : "management"}</span>
-            {ev.prompt_version ? <span className="chip">prompt {ev.prompt_version}</span> : null}
-            {ev.model ? <span className="chip">{ev.model}</span> : null}
+        <details key={ev.gate} className="plan-drop">
+          <summary>
+            AI note
+            <span className={`chip ${ev.verdict === "take" ? "ok" : ev.verdict === "skip" ? "bad" : "warn"}`}>{ev.verdict}</span>
+          </summary>
+          <div className="plan-drop-body">
+            <div className="pills">
+              <span className="chip">{ev.gate === "plan_card" ? "plan card" : ev.gate === "actionable_alert" ? "alert" : "management"}</span>
+              {ev.prompt_version ? <span className="chip">prompt {ev.prompt_version}</span> : null}
+              {ev.model ? <span className="chip">{ev.model}</span> : null}
+            </div>
+            {ev.reasons?.length ? (
+              <ul className="plan-notes">
+                {ev.reasons.map((reason) => (
+                  <li key={reason}>{reason}</li>
+                ))}
+              </ul>
+            ) : null}
+            {ev.open_questions?.length ? <p className="notes">Open: {ev.open_questions.join(" ")}</p> : null}
           </div>
-          {ev.reasons?.length ? <p className="notes">{ev.reasons.join(" ")}</p> : null}
-          {ev.open_questions?.length ? <p className="notes">Open: {ev.open_questions.join(" ")}</p> : null}
-        </div>
+        </details>
       ))}
     </>
   );
   if (href) {
     return (
-      <Link href={href} className="plan">
-        {inner}
-      </Link>
+      <article className="plan">
+        <Link href={href} className="plan-main">
+          {inner}
+        </Link>
+        {extra}
+      </article>
     );
   }
-  return <article className="plan">{inner}</article>;
+  return (
+    <article className="plan">
+      {inner}
+      {extra}
+    </article>
+  );
 }
