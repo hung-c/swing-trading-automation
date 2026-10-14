@@ -23,6 +23,8 @@ cache/
 state/*.sqlite
 state/*.sqlite-wal
 state/*.sqlite-shm
+state/*.log
+state/last-*.txt
 
 # Next.js / Vercel
 web/node_modules/

@@ -111,8 +111,28 @@ button, input, select { font: inherit; }
 .pill.off { color: var(--red); border-color: rgba(239, 107, 115, 0.35); }
 
 .plan-slot { display: flex; flex-direction: column; gap: 8px; }
-.plan-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.plan-actions .btn { padding: 6px 10px; font-size: 13px; }
+.plan-watch {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--card-2);
+  color: var(--muted);
+  cursor: pointer;
+}
+.plan-watch svg { width: 14px; height: 14px; display: block; }
+.plan-watch.on { color: var(--text); border-color: #3d4d63; background: var(--bg-2); }
+.plan-watch:hover { color: var(--text); border-color: #3d4d63; }
+.plan-watch:disabled { opacity: 0.55; cursor: default; }
+.plan:has(.plan-watch) { position: relative; }
+.plan:has(.plan-watch) .plan-top { padding-right: 32px; }
 
 .plan {
   background: var(--card);
@@ -153,7 +173,8 @@ button, input, select { font: inherit; }
   background: var(--faint);
 }
 a.plan-main { display: flex; flex-direction: column; gap: 10px; color: inherit; }
-.plan-drop { border-top: 1px solid var(--line); margin: 2px -16px -6px; padding: 0 16px 8px; }
+.plan-drop { border-top: 1px solid var(--line); margin: 2px -16px 0; padding: 0 16px 8px; }
+.plan-drop:last-child { margin-bottom: -6px; }
 .plan-drop + .plan-drop { margin-top: -8px; }
 .plan-drop summary {
   cursor: pointer;

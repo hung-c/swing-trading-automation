@@ -1,5 +1,4 @@
 import { PlanCard } from "@/components/PlanCard";
-import { WatchButton } from "@/components/WatchButton";
 import { etDate, scanStillOpen } from "@/lib/format";
 import type { PlanCard as Plan, WatchItem } from "@/lib/types";
 
@@ -33,10 +32,7 @@ export function PlanBoard({
       {watchlist.length ? (
         <div className="grid grid-2">
           {watchlist.map((w) => (
-            <div className="plan-slot" key={w.symbol}>
-              <PlanCard plan={w.plan} price={prices[w.symbol]} href={`/plans/${w.symbol}`} />
-              <WatchButton symbol={w.symbol} saved />
-            </div>
+            <PlanCard key={w.symbol} plan={w.plan} price={prices[w.symbol]} href={`/plans/${w.symbol}`} saved />
           ))}
         </div>
       ) : (
@@ -64,10 +60,7 @@ export function PlanBoard({
           {scan.length ? (
             <div className="grid grid-2">
               {scan.map((p) => (
-                <div className="plan-slot" key={p.symbol}>
-                  <PlanCard plan={p} price={prices[p.symbol]} href={`/plans/${p.symbol}`} />
-                  <WatchButton symbol={p.symbol} saved={false} />
-                </div>
+                <PlanCard key={p.symbol} plan={p} price={prices[p.symbol]} href={`/plans/${p.symbol}`} saved={false} />
               ))}
             </div>
           ) : (

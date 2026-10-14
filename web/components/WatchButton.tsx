@@ -25,12 +25,25 @@ export function WatchButton({ symbol, saved }: { symbol: string; saved: boolean 
     router.refresh();
   }
 
+  const label = err ?? (saved ? "Remove from watchlist" : "Save to watchlist");
   return (
-    <div className="plan-actions">
-      <button className={saved ? "btn ghost" : "btn"} type="button" disabled={busy} onClick={onClick}>
-        {busy ? "Saving…" : saved ? "Remove from watchlist" : "Save to watchlist"}
-      </button>
-      {err ? <span className="notes">{err}</span> : null}
-    </div>
+    <button
+      className={saved ? "plan-watch on" : "plan-watch"}
+      type="button"
+      disabled={busy}
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+    >
+      {saved ? (
+        <svg viewBox="0 0 16 16" aria-hidden="true">
+          <path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        </svg>
+      ) : (
+        <svg viewBox="0 0 16 16" aria-hidden="true">
+          <path d="M8 3.5v9M3.5 8h9" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        </svg>
+      )}
+    </button>
   );
 }
