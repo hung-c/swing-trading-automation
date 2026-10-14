@@ -163,13 +163,16 @@ class PlanCard(BaseModel):
     notes: list[str] = Field(default_factory=list)
     chart_paths: dict[str, str] = Field(default_factory=dict)
     evaluations: list[TickerEvaluation] = Field(default_factory=list)
+    strategy_id: str | None = None
+    strategy_name: str | None = None
 
     def card_text(self) -> str:
         e = self.earnings
         edays = f"{e.trading_days_away}d" if e and e.trading_days_away is not None else "n/a"
         edate = e.date.isoformat() if e and e.date else "n/a"
+        who = f" | {self.strategy_name}" if self.strategy_name else ""
         return (
-            f"{self.symbol} | {self.pattern.replace('_', ' ')} | quality {self.pattern_quality:.1f}/10 | trend {self.trend_score}/8\n"
+            f"{self.symbol}{who} | {self.pattern.replace('_', ' ')} | quality {self.pattern_quality:.1f}/10 | trend {self.trend_score}/8\n"
             f"Resistance ${self.resistance:.2f} -> Entry ${self.entry:.2f} -> Stop ${self.stop:.2f} ({self.stop_pct:.1f}%, {self.stop_atr_mult:.1f}x ATR)\n"
             f"Risk/share ${self.risk_per_share:.2f} -> Shares {self.shares} (${self.notional:,.0f}) -> 2R ${self.target_2r:.2f} | 3R ${self.target_3r:.2f}\n"
             f"Earnings {edate} ({edays}) | Alert ${self.alert_level:.2f}"

@@ -256,6 +256,7 @@ def run_nightly(args) -> int:
         with run.step("risk") as st:
             positions = journal.open_positions()
             watch, rejected = risk.run(kept, positions, cfg)
+            journal.stamp_plan_strategy(watch + rejected)
             for c in dropped:
                 log.debug("dropped %s: %s", c.row.symbol, c.dropped_reason)
             st.summary = {"plans": len(watch), "rejected": len(rejected)}

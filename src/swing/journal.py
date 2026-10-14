@@ -282,6 +282,45 @@ def active_strategy(path: Path | None = None) -> dict | None:
     return {"id": str(r["id"]), "name": str(r["name"]), "payload": _json(r["payload"])}
 
 
+def _nightly_enabled(row: dict) -> bool:
+    payload = row.get("payload")
+    if not isinstance(payload, dict):
+        return False
+    flow = payload.get("flow")
+    if not isinstance(flow, dict):
+        return False
+    clocks = flow.get("clocks")
+    if not isinstance(clocks, dict):
+        return False
+    nightly = clocks.get("nightly")
+    return isinstance(nightly, dict) and nightly.get("enabled") is True
+
+
+def plan_strategy(path: Path | None = None) -> tuple[str | None, str | None]:
+    """Id and display name for the strategy that wrote a plan card.
+
+    Active strategies with the nightly clock on are the source. One strategy
+    keeps its id. Several names are joined, and the id is left blank.
+    """
+    active = list_strategies(path=path, status="active")
+    chosen = [row for row in active if _nightly_enabled(row)] or active
+    names = [str(row["name"]) for row in chosen if row.get("name")]
+    if not names:
+        return None, None
+    sid = str(chosen[0]["id"]) if len(chosen) == 1 and chosen[0].get("id") else None
+    return sid, " · ".join(names)
+
+
+def stamp_plan_strategy(plans: list[PlanCard], path: Path | None = None) -> None:
+    """Write the current plan-card strategy onto each card. No-op when none is active."""
+    sid, name = plan_strategy(path)
+    if not name:
+        return
+    for plan in plans:
+        plan.strategy_id = sid
+        plan.strategy_name = name
+
+
 def list_strategies(path: Path | None = None, status: str | None = None) -> list[dict]:
     """Saved strategy documents. ``status`` limits the rows (active, draft, paused)."""
     with connect(path) as db:
