@@ -206,6 +206,31 @@ a.plan-main { display: flex; flex-direction: column; gap: 10px; color: inherit; 
 .plan-drop-body { display: grid; gap: 8px; padding-bottom: 4px; }
 .plan-drop .plan-notes { margin-bottom: 6px; }
 .chip { font-size: 11px; padding: 2px 7px; border-radius: 999px; background: var(--bg-2); color: var(--muted); }
+.chip[data-tip] { position: relative; cursor: help; }
+.chip[data-tip]:hover::after {
+  content: attr(data-tip);
+  position: absolute;
+  z-index: 8;
+  top: calc(100% + 6px);
+  left: 0;
+  width: max-content;
+  max-width: 28ch;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: 0;
+  text-transform: none;
+  white-space: normal;
+  text-align: left;
+  pointer-events: none;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+}
+.plan-top .chip[data-tip]:hover::after { left: auto; right: 0; }
 .chip.warn { color: var(--amber); }
 .chip.bad { color: var(--red); }
 .chip.ok { color: var(--green); }
