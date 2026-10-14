@@ -502,6 +502,15 @@ def kv_set(k: str, v, path: Path | None = None) -> None:
         )
 
 
+def kv_delete_at(k: str, at: str, path: Path | None = None) -> None:
+    """Delete a kv row only when its JSON `at` still matches. A newer queue request stays."""
+    with connect(path) as db:
+        if db.pg:
+            db.execute("DELETE FROM kv WHERE k=? AND v->>'at'=?", (k, at))
+        else:
+            db.execute("DELETE FROM kv WHERE k=? AND json_extract(v, '$.at')=?", (k, at))
+
+
 def trades(path: Path | None = None) -> list[dict]:
     with connect(path) as db:
         return db.all("SELECT * FROM trades ORDER BY closed, id")

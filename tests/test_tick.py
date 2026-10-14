@@ -219,6 +219,72 @@ def test_tick_heartbeat_while_a_job_runs(tmp_path, monkeypatch):
     assert beat["finished_at"]
 
 
+def test_queued_job_runs_on_the_next_tick_outside_its_window(tmp_path, monkeypatch):
+    db = tmp_path / "j.sqlite"
+    add_strategy(db, "desk", "active", {"premarket": {"enabled": True, "start": "07:03"}})
+    stamp(db, "premarket", "ok", at("07:03"))
+    journal.kv_set("tick_queue:premarket", {"at": "2026-10-09T13:00:00+00:00"}, path=db)
+    monkeypatch.setattr("swing.tick.now_et", lambda: at("09:18"))
+    monkeypatch.setattr("swing.tick.is_trading_day", lambda _day: True)
+    monkeypatch.setattr("swing.tick.is_early_close", lambda _day: False)
+    monkeypatch.setattr("swing.data.usage.flush", lambda **_kwargs: None)
+    seen = {}
+
+    def fake(args):
+        seen["force"] = args.force
+        seen["from_tick"] = args.from_tick
+        return 0
+
+    import swing.jobs as jobs
+
+    monkeypatch.setattr(jobs, "run_premarket", fake)
+    assert run_tick(argparse.Namespace(path=db)) == 0
+    assert seen == {"force": True, "from_tick": True}
+    assert journal.kv_get("tick_queue:premarket", path=db) is None
+    beat = journal.kv_get("tick", path=db)
+    assert beat["status"] == "ok"
+    assert beat["due"] == ["premarket"]
+
+
+def test_queued_job_still_runs_when_the_market_is_closed(tmp_path, monkeypatch):
+    db = tmp_path / "j.sqlite"
+    journal.kv_set("tick_queue:nightly", {"at": "2026-10-10T13:00:00+00:00"}, path=db)
+    monkeypatch.setattr("swing.tick.now_et", lambda: at("09:18", "2026-10-10"))
+    monkeypatch.setattr("swing.tick.is_trading_day", lambda _day: False)
+    monkeypatch.setattr("swing.data.usage.flush", lambda **_kwargs: None)
+    seen = {}
+
+    def fake(args):
+        seen["force"] = args.force
+        return 0
+
+    import swing.jobs as jobs
+
+    monkeypatch.setattr(jobs, "run_nightly", fake)
+    assert run_tick(argparse.Namespace(path=db)) == 0
+    assert seen["force"] is True
+    assert journal.kv_get("tick_queue:nightly", path=db) is None
+
+
+def test_a_newer_queue_request_survives_the_tick(tmp_path, monkeypatch):
+    db = tmp_path / "j.sqlite"
+    journal.kv_set("tick_queue:report", {"at": "2026-10-09T13:00:00+00:00"}, path=db)
+    monkeypatch.setattr("swing.tick.now_et", lambda: at("09:18"))
+    monkeypatch.setattr("swing.tick.is_trading_day", lambda _day: True)
+    monkeypatch.setattr("swing.tick.is_early_close", lambda _day: False)
+    monkeypatch.setattr("swing.data.usage.flush", lambda **_kwargs: None)
+
+    def fake(_args):
+        journal.kv_set("tick_queue:report", {"at": "2026-10-09T13:05:00+00:00"}, path=db)
+        return 0
+
+    import swing.jobs as jobs
+
+    monkeypatch.setattr(jobs, "run_report", fake)
+    assert run_tick(argparse.Namespace(path=db)) == 0
+    assert journal.kv_get("tick_queue:report", path=db)["at"] == "2026-10-09T13:05:00+00:00"
+
+
 def test_report_only_on_friday(tmp_path):
     db = tmp_path / "j.sqlite"
     add_strategy(db, "desk", "active", {"report": {"enabled": True, "start": "17:11"}})
