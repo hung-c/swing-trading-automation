@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { formatCountdown, type PcState, type TickStatus } from "@/lib/tick-status";
+import { formatCountdown, type JobName, type PcState, type TickStatus } from "@/lib/tick-status";
 
 const BANNER: Record<PcState, string> = {
   running: "banner live",
@@ -40,6 +40,29 @@ export function TickBoard({ initial }: { initial: TickStatus }) {
   const [data, setData] = useState(initial);
   const [now, setNow] = useState<number | null>(null);
   const [refreshFailed, setRefreshFailed] = useState(false);
+  const [busyJob, setBusyJob] = useState<JobName | null>(null);
+  const [queueError, setQueueError] = useState<string | null>(null);
+
+  async function queueJob(job: JobName, queued: boolean) {
+    setBusyJob(job);
+    setQueueError(null);
+    try {
+      const res = await fetch("/api/tick", {
+        method: queued ? "DELETE" : "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ job }),
+      });
+      if (!res.ok) throw new Error(String(res.status));
+      setData((prev) => ({
+        ...prev,
+        jobs: prev.jobs.map((row) => (row.job === job ? { ...row, queued: !queued } : row)),
+      }));
+    } catch {
+      setQueueError(queued ? "Could not cancel that job." : "Could not queue that job.");
+    } finally {
+      setBusyJob(null);
+    }
+  }
 
   useEffect(() => {
     setNow(Date.now());
@@ -99,8 +122,9 @@ export function TickBoard({ initial }: { initial: TickStatus }) {
           <h3 style={{ margin: "0 0 6px" }}>On the next tick</h3>
           <p className="lede">
             {data.strategies.length ? `Active ${data.strategies.join(", ")}.` : "No strategy is active, so the tick will not start a job."}
-            {data.sessionNote ? ` ${data.sessionNote}` : ""}
+            {data.sessionNote ? ` ${data.sessionNote}` : ""} Run next tick asks Swing Tick to start that job on its next wake-up.
           </p>
+          {queueError ? <p className="warn-list">{queueError}</p> : null}
           {data.jobs.length ? (
             <table>
               <thead>
@@ -108,6 +132,7 @@ export function TickBoard({ initial }: { initial: TickStatus }) {
                   <th>Job</th>
                   <th>Clock</th>
                   <th>Next tick</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -116,7 +141,19 @@ export function TickBoard({ initial }: { initial: TickStatus }) {
                     <td>{job.label}</td>
                     <td className="mono">{job.when}</td>
                     <td>
-                      <span className={chip(job.reason, job.due)}>{job.due ? "Due" : job.reason}</span>
+                      <span className={job.queued && !job.due ? "chip warn" : chip(job.reason, job.due)}>
+                        {job.queued && !job.due ? "Queued" : job.due ? "Due" : job.reason}
+                      </span>
+                    </td>
+                    <td>
+                      <button
+                        className="btn ghost tiny"
+                        type="button"
+                        disabled={busyJob === job.job}
+                        onClick={() => queueJob(job.job, job.queued)}
+                      >
+                        {job.queued ? "Cancel" : "Run next tick"}
+                      </button>
                     </td>
                   </tr>
                 ))}

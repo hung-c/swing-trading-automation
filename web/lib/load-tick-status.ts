@@ -1,5 +1,14 @@
 import { asObj, first, getSql, rows } from "./db";
-import { buildTickStatus, parseHeartbeat, type StrategyInput, type TickRun, type TickStatus } from "./tick-status";
+import {
+  buildTickStatus,
+  isJobName,
+  parseHeartbeat,
+  TICK_QUEUE_PREFIX,
+  type JobName,
+  type StrategyInput,
+  type TickRun,
+  type TickStatus,
+} from "./tick-status";
 
 function iso(value: unknown): string | null {
   if (value == null) return null;
@@ -28,7 +37,7 @@ export async function loadTickStatus(now = new Date()): Promise<TickStatus> {
   if (!sql) return buildTickStatus({ configured: false, now, heartbeat: null, strategies: [], runs: [] });
 
   try {
-    const [kvRaw, strategyRaw, runRaw] = await Promise.all([
+    const [kvRaw, strategyRaw, runRaw, queueRaw] = await Promise.all([
       sql`SELECT v, updated_at FROM kv WHERE k = 'tick' LIMIT 1`,
       sql`SELECT id, name, status, payload FROM strategies WHERE status = 'active' ORDER BY name`,
       sql`
@@ -38,6 +47,7 @@ export async function loadTickStatus(now = new Date()): Promise<TickStatus> {
         ORDER BY started_at DESC, id DESC
         LIMIT 80
       `,
+      sql`SELECT k, v FROM kv WHERE k LIKE ${`${TICK_QUEUE_PREFIX}%`}`,
     ]);
 
     const kv = first<{ v: unknown; updated_at?: unknown }>(kvRaw);
@@ -78,7 +88,22 @@ export async function loadTickStatus(now = new Date()): Promise<TickStatus> {
       error: row.error == null ? null : String(row.error),
     }));
 
-    return buildTickStatus({ configured: true, now, heartbeat, strategies, runs });
+    const queued: JobName[] = [];
+    for (const row of rows<{ k: unknown; v: unknown }>(queueRaw)) {
+      const key = String(row.k ?? "");
+      const job = key.startsWith(TICK_QUEUE_PREFIX) ? key.slice(TICK_QUEUE_PREFIX.length) : "";
+      if (!isJobName(job)) continue;
+      let stamp = "";
+      try {
+        const value = asObj<{ at?: unknown }>(row.v);
+        stamp = typeof value.at === "string" ? value.at : "";
+      } catch {
+        stamp = "";
+      }
+      if (stamp) queued.push(job);
+    }
+
+    return buildTickStatus({ configured: true, now, heartbeat, strategies, runs, queued });
   } catch (error) {
     console.error("loadTickStatus failed", error);
     return buildTickStatus({ configured: true, readError: true, now, heartbeat: null, strategies: [], runs: [] });

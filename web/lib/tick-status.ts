@@ -7,6 +7,13 @@ import { TICK_TIMES } from "./strategy-flow";
 export const JOB_ORDER = ["premarket", "intraday", "nightly", "report"] as const;
 export type JobName = (typeof JOB_ORDER)[number];
 
+/** Keep in sync with QUEUE_PREFIX in src/swing/tick.py. */
+export const TICK_QUEUE_PREFIX = "tick_queue:";
+
+export function isJobName(value: string): value is JobName {
+  return (JOB_ORDER as readonly string[]).includes(value);
+}
+
 const ET = "America/New_York";
 const TICK_START = 7 * 60 + 3;
 const TICK_END = 19 * 60 + 3;
@@ -69,6 +76,7 @@ export type JobOutlook = {
   job: JobName;
   label: string;
   due: boolean;
+  queued: boolean;
   when: string;
   reason: string;
 };
@@ -374,20 +382,21 @@ function windowText(job: JobName, window: Window, early: boolean): string {
   return `${clockLabel(window.start)}–${clockLabel(end)} ET`;
 }
 
-function outlook(strategies: StrategyInput[], runs: TickRun[], at: Date): JobOutlook[] {
+function outlook(strategies: StrategyInput[], runs: TickRun[], at: Date, queued: ReadonlySet<string>): JobOutlook[] {
   const p = etParts(at);
   const session = sessionOn(p.year, p.month, p.day);
   const early = session === "early";
   const trading = session === "open" || session === "early";
   const open = windows(strategies, early);
   return JOB_ORDER.map((job) => {
+    const waiting = queued.has(job);
     const window = open[job];
     if (!window) {
-      return { job, label: JOB_LABEL[job], due: false, when: "Off", reason: "Off" };
+      return { job, label: JOB_LABEL[job], due: false, queued: waiting, when: "Off", reason: "Off" };
     }
     const when = windowText(job, window, early);
     if (!trading) {
-      return { job, label: JOB_LABEL[job], due: false, when, reason: "Market is closed" };
+      return { job, label: JOB_LABEL[job], due: false, queued: waiting, when, reason: "Market is closed" };
     }
     if (!inWindow(job, window, at, early)) {
       const beforeFriday = job === "report" && etParts(at).weekday !== "Fri";
@@ -395,11 +404,11 @@ function outlook(strategies: StrategyInput[], runs: TickRun[], at: Date): JobOut
       if (beforeFriday) reason = "Friday only";
       else if (job === "intraday") reason = `Outside ${when}`;
       else if (onceState(window.start, at) === "after") reason = `Outside ${clockLabel(window.start)} ET`;
-      return { job, label: JOB_LABEL[job], due: false, when, reason };
+      return { job, label: JOB_LABEL[job], due: false, queued: waiting, when, reason };
     }
     const blocked = blockReason(job, window, runs, at);
-    if (blocked) return { job, label: JOB_LABEL[job], due: false, when, reason: blocked };
-    return { job, label: JOB_LABEL[job], due: true, when, reason: "Due" };
+    if (blocked) return { job, label: JOB_LABEL[job], due: false, queued: waiting, when, reason: blocked };
+    return { job, label: JOB_LABEL[job], due: true, queued: waiting, when, reason: "Due" };
   });
 }
 
@@ -511,6 +520,7 @@ export function buildTickStatus(input: {
   heartbeat: Heartbeat | null;
   strategies: StrategyInput[];
   runs: TickRun[];
+  queued?: string[];
 }): TickStatus {
   const now = input.now ?? new Date();
   if (!input.configured || input.readError) return emptyStatus(now, input.configured, Boolean(input.readError));
@@ -519,8 +529,10 @@ export function buildTickStatus(input: {
   const nextLabel = next ? formatWhen(next, now) : "—";
   const live = liveRuns(input.runs, now);
   const state = pcState(now, input.heartbeat, live.length > 0);
-  const jobs = next ? outlook(input.strategies, input.runs, next) : [];
+  const queued = new Set(input.queued ?? []);
+  const jobs = next ? outlook(input.strategies, input.runs, next, queued) : [];
   const due = jobs.filter((job) => job.due).map((job) => job.label);
+  const queuedLabels = jobs.filter((job) => job.queued).map((job) => job.label);
   const active = input.strategies.filter((row) => row.status === "active").map((row) => row.name);
   const beat = input.heartbeat;
   const seenIso = beat ? beat.finishedAt ?? beat.startedAt : live[0]?.startedAt ?? null;
@@ -558,6 +570,8 @@ export function buildTickStatus(input: {
     detail = `${seen ? `At ${seen}. ` : ""}${beat.message || "It will try again on the next tick."}`;
   } else if (due.length) {
     detail = `Next tick ${nextLabel}. ${due.join(", ")} ${due.length === 1 ? "is" : "are"} due.`;
+  } else if (queuedLabels.length) {
+    detail = `Next tick ${nextLabel}.`;
   } else if (jobs.some((job) => job.reason === "Market is closed")) {
     detail = `Next tick ${nextLabel}. The market is closed, so the tick wakes up and exits.`;
   } else {
@@ -575,6 +589,10 @@ export function buildTickStatus(input: {
     headline = "Waiting on this tick";
     detail = `The ${slotLabel} tick has not reported yet.${seen ? ` Last check-in was ${seen}.` : ""}`;
   }
+  if (queuedLabels.length) {
+    const verb = queuedLabels.length === 1 ? "is" : "are";
+    detail = `${detail.replace(/\.\s*$/, "")}. ${queuedLabels.join(", ")} ${verb} queued for the next tick.`;
+  }
   if (host && state !== "silent") detail = `${detail.replace(/\.\s*$/, "")} on ${host}.`;
 
   let jobsLabel = "None";
@@ -585,6 +603,9 @@ export function buildTickStatus(input: {
   } else if (due.length) {
     jobsLabel = due.join(", ");
     jobsHint = "on the next tick";
+  } else if (queuedLabels.length) {
+    jobsLabel = queuedLabels.join(", ");
+    jobsHint = "queued for the next tick";
   } else if (jobs.some((job) => job.reason === "Market is closed")) {
     jobsHint = "market is closed";
   } else if (jobs.length && jobs.every((job) => job.reason === "Off")) {

@@ -1,5 +1,9 @@
 """One 15-minute tick. Decides which of the four jobs are due, then runs those.
 
+A dashboard button can also queue a job (`tick_queue:<job>` in kv). That job runs on the
+next tick even when the clock, the catch-up window, or a closed session would skip it.
+The queue row is removed after that attempt, unless a newer request arrived while it ran.
+
 Start times live on each active strategy's clocks (web/lib/strategy-flow.ts) and are Swing Tick
 times. A missing nightly start, or one left at 16:48, moves to 13:48 on an early-close day.
 A strategy still saved as 16:37 moves to 13:37. Any other nightly time is used as written.
@@ -39,6 +43,8 @@ INTERVAL = timedelta(minutes=15)
 # A failed or stuck once-job may retry on later ticks. The window closes after the
 # hour-long stale limit plus one more tick, so a morning job does not run in the afternoon.
 ONCE_CATCH_UP = RUN_STALE + INTERVAL
+# Keep in sync with TICK_QUEUE_PREFIX in web/lib/tick-status.ts.
+QUEUE_PREFIX = "tick_queue:"
 
 
 def _parse_hhmm(value, fallback: time) -> time:
@@ -185,8 +191,25 @@ def due_jobs(now: datetime, *, path: Path | None = None, early_close: bool = Fal
     return jobs_due(strategies, runs, now, early_close=early_close)
 
 
-def _runner_args() -> argparse.Namespace:
-    return argparse.Namespace(dry_run=False, force=False, limit=None, manage=False, from_tick=True)
+def _runner_args(*, force: bool = False) -> argparse.Namespace:
+    return argparse.Namespace(dry_run=False, force=force, limit=None, manage=False, from_tick=True)
+
+
+def queued_jobs(path: Path | None = None) -> dict[str, str]:
+    """Manual requests waiting for this tick. Values are the `at` stamp the dashboard wrote."""
+    found: dict[str, str] = {}
+    for job in JOB_ORDER:
+        raw = journal.kv_get(QUEUE_PREFIX + job, path=path)
+        if isinstance(raw, dict) and isinstance(raw.get("at"), str) and raw["at"]:
+            found[job] = raw["at"]
+    return found
+
+
+def _clear_queued(path: Path | None, job: str, at: str) -> None:
+    try:
+        journal.kv_delete_at(QUEUE_PREFIX + job, at, path=path)
+    except Exception:
+        log.exception("clear tick queue for %s failed", job)
 
 
 def _utc() -> str:
@@ -210,11 +233,12 @@ def run_tick(args) -> int:
     path = getattr(args, "path", None)
     started = _utc()
     host = socket.gethostname()
+    manual = queued_jobs(path)
 
     def beat(**extra) -> None:
         _heartbeat(path, {"host": host, "started_at": started, "at": now.isoformat(), **extra})
 
-    if not is_trading_day(now.date()):
+    if not is_trading_day(now.date()) and not manual:
         msg = f"not a trading day ({now.date()})"
         log.info("not a trading day (%s); tick exits", now.date())
         print(f"tick: {msg}")
@@ -223,7 +247,8 @@ def run_tick(args) -> int:
 
     beat(status="running", finished_at=None, due=[], message=f"tick {now:%H:%M} ET", exit=None)
     try:
-        due = due_jobs(now, path=path, early_close=is_early_close(now.date()))
+        scheduled = due_jobs(now, path=path, early_close=is_early_close(now.date())) if is_trading_day(now.date()) else []
+        due = [job for job in JOB_ORDER if job in scheduled or job in manual]
         if not due:
             print(f"tick {now:%H:%M} ET: nothing due")
             beat(status="idle", finished_at=_utc(), due=[], message="nothing due", exit=0)
@@ -248,13 +273,15 @@ def run_tick(args) -> int:
         failed = False
         for job in due:
             try:
-                rc = runners[job](_runner_args())
+                rc = runners[job](_runner_args(force=job in manual))
                 if rc:
                     failed = True
             except Exception:
                 log.exception("tick job %s failed", job)
                 failed = True
             finally:
+                if job in manual:
+                    _clear_queued(path, job, manual[job])
                 try:
                     flush(path=path, job=job)
                 except Exception:
