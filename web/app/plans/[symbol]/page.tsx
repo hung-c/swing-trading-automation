@@ -2,7 +2,6 @@ import Link from "next/link";
 import { Nav } from "@/components/Nav";
 import { PlanCard } from "@/components/PlanCard";
 import { PlanChart } from "@/components/PlanChart";
-import { WatchButton } from "@/components/WatchButton";
 import { loadPlan, loadSnapshot } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
@@ -28,10 +27,11 @@ export default async function PlanDetail({ params }: { params: Promise<{ symbol:
             <div className="page-head">
               <h1 style={{ margin: 0 }}>{plan.symbol}</h1>
             </div>
-            <div className="plan-slot">
-              <PlanCard plan={plan} price={snap.prices[plan.symbol]} />
-              {saved || plan.status !== "rejected" ? <WatchButton symbol={plan.symbol} saved={Boolean(saved)} /> : null}
-            </div>
+            <PlanCard
+              plan={plan}
+              price={snap.prices[plan.symbol]}
+              saved={saved || plan.status !== "rejected" ? Boolean(saved) : undefined}
+            />
             <div style={{ marginTop: 16 }}>
               <PlanChart
                 symbol={plan.symbol}

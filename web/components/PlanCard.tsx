@@ -1,8 +1,9 @@
 import Link from "next/link";
+import { WatchButton } from "@/components/WatchButton";
 import { distanceToEntry, num, patternName, usd } from "@/lib/format";
 import type { PlanCard as Plan } from "@/lib/types";
 
-export function PlanCard({ plan, price, href }: { plan: Plan; price?: number; href?: string }) {
+export function PlanCard({ plan, price, href, saved }: { plan: Plan; price?: number; href?: string; saved?: boolean }) {
   const dist = distanceToEntry(plan, price);
   const strategies = (plan.strategy_name ?? "")
     .split("·")
@@ -91,9 +92,11 @@ export function PlanCard({ plan, price, href }: { plan: Plan; price?: number; hr
       ))}
     </>
   );
+  const watch = saved != null ? <WatchButton symbol={plan.symbol} saved={saved} /> : null;
   if (href) {
     return (
       <article className="plan">
+        {watch}
         <Link href={href} className="plan-main">
           {inner}
         </Link>
@@ -103,6 +106,7 @@ export function PlanCard({ plan, price, href }: { plan: Plan; price?: number; hr
   }
   return (
     <article className="plan">
+      {watch}
       {inner}
       {extra}
     </article>
