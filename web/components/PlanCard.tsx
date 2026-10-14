@@ -1,7 +1,21 @@
 import Link from "next/link";
 import { WatchButton } from "@/components/WatchButton";
 import { distanceToEntry, num, patternName, usd } from "@/lib/format";
-import type { PlanCard as Plan } from "@/lib/types";
+import type { PlanCard as Plan, PlanStatus } from "@/lib/types";
+
+function statusTip(status: PlanStatus): string {
+  if (status === "watch") return "Cleared the rules. A plan to watch, not an open trade.";
+  if (status === "rejected") return "Failed a hard rule, so this is not a plan to take.";
+  if (status === "triggered") return "Price hit the alert and this plan has triggered.";
+  if (status === "open") return "This name is an open position.";
+  return "This trade is closed.";
+}
+
+function distanceTip(tone: "ok" | "warn" | "chase", label: string): string {
+  if (tone === "chase") return `${label}. More than 1% above the planned entry.`;
+  if (tone === "warn") return `${label}. Price has crossed the entry and is still within 1%.`;
+  return `${label}. Last price is still under the planned entry.`;
+}
 
 export function PlanCard({ plan, price, href, saved }: { plan: Plan; price?: number; href?: string; saved?: boolean }) {
   const dist = distanceToEntry(plan, price);
@@ -22,13 +36,26 @@ export function PlanCard({ plan, price, href, saved }: { plan: Plan; price?: num
           </div>
         </div>
         <div className="pills">
-          <span className="chip">{plan.status}</span>
+          <span className="chip" data-tip={statusTip(plan.status)}>
+            {plan.status}
+          </span>
           {plan.earnings?.trading_days_away != null ? (
-            <span className={`chip ${plan.earnings.trading_days_away <= 5 ? "warn" : ""}`}>
+            <span
+              className={`chip ${plan.earnings.trading_days_away <= 5 ? "warn" : ""}`}
+              data-tip={
+                plan.earnings.trading_days_away <= 5
+                  ? `Earnings in ${plan.earnings.trading_days_away} trading days. New entries are blocked this close to the report.`
+                  : `Earnings in ${plan.earnings.trading_days_away} trading days.`
+              }
+            >
               ern {plan.earnings.trading_days_away}d
             </span>
           ) : null}
-          {dist ? <span className={`chip ${dist.tone === "chase" ? "bad" : dist.tone === "ok" ? "ok" : "warn"}`}>{dist.label}</span> : null}
+          {dist ? (
+            <span className={`chip ${dist.tone === "chase" ? "bad" : dist.tone === "ok" ? "ok" : "warn"}`} data-tip={distanceTip(dist.tone, dist.label)}>
+              {dist.label}
+            </span>
+          ) : null}
         </div>
       </div>
       <div className="levels">
@@ -71,13 +98,43 @@ export function PlanCard({ plan, price, href, saved }: { plan: Plan; price?: num
         <details key={ev.gate} className="plan-drop">
           <summary>
             AI note
-            <span className={`chip ${ev.verdict === "take" ? "ok" : ev.verdict === "skip" ? "bad" : "warn"}`}>{ev.verdict}</span>
+            <span
+              className={`chip ${ev.verdict === "take" ? "ok" : ev.verdict === "skip" ? "bad" : "warn"}`}
+              data-tip={
+                ev.verdict === "take"
+                  ? "The judge says this name is worth taking. It does not change the entry, stop, or size."
+                  : ev.verdict === "skip"
+                    ? "The judge says skip this name. It does not change the entry, stop, or size."
+                    : "The judge wants this name watched, not taken yet."
+              }
+            >
+              {ev.verdict}
+            </span>
           </summary>
           <div className="plan-drop-body">
             <div className="pills">
-              <span className="chip">{ev.gate === "plan_card" ? "plan card" : ev.gate === "actionable_alert" ? "alert" : "management"}</span>
-              {ev.prompt_version ? <span className="chip">prompt {ev.prompt_version}</span> : null}
-              {ev.model ? <span className="chip">{ev.model}</span> : null}
+              <span
+                className="chip"
+                data-tip={
+                  ev.gate === "plan_card"
+                    ? "Judged when the nightly plan card was written."
+                    : ev.gate === "actionable_alert"
+                      ? "Judged when an actionable alert fired."
+                      : "Judged while managing an open position."
+                }
+              >
+                {ev.gate === "plan_card" ? "plan card" : ev.gate === "actionable_alert" ? "alert" : "management"}
+              </span>
+              {ev.prompt_version ? (
+                <span className="chip" data-tip="Version of the written instructions used for this judgment.">
+                  prompt {ev.prompt_version}
+                </span>
+              ) : null}
+              {ev.model ? (
+                <span className="chip" data-tip="Model that wrote this judgment.">
+                  {ev.model}
+                </span>
+              ) : null}
             </div>
             {ev.reasons?.length ? (
               <ul className="plan-notes">
