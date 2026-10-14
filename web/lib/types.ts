@@ -34,6 +34,8 @@ export type PlanCard = {
   notes?: string[];
   chart_paths?: Record<string, string>;
   evaluations?: TickerEvaluation[];
+  strategy_id?: string | null;
+  strategy_name?: string | null;
 };
 
 export type TickerEvaluation = {

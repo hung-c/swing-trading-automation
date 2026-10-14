@@ -9,6 +9,12 @@ export function PlanCard({ plan, price, href }: { plan: Plan; price?: number; hr
       <div className="plan-top">
         <div>
           <div className="sym">{plan.symbol}</div>
+          {plan.strategy_name ? (
+            <div className="plan-strategy">
+              <span className="strategy-kicker">Strategy</span>
+              {plan.strategy_name}
+            </div>
+          ) : null}
           <div className="pat">
             {patternName(plan.pattern)} · q {num(plan.pattern_quality, 1)}/10 · trend {plan.trend_score}/8
             {plan.sector ? ` · ${plan.sector}` : ""}

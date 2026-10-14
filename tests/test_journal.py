@@ -1,3 +1,4 @@
+import json
 from datetime import date, datetime
 
 from swing import journal
@@ -131,3 +132,39 @@ def test_unsaved_names_drop_after_the_day(tmp_path):
     journal.delete_watch("SAVED", path=db)
     journal.drop_unsaved(date(2026, 10, 8), path=db)
     assert journal.plans_for(date(2026, 10, 7), path=db) == []
+
+
+def _save_strategy(path, name, status="active", nightly=True, sid="aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", updated="2026-10-08T15:00:00+00:00"):
+    payload = {"flow": {"clocks": {"nightly": {"enabled": nightly, "start": "16:48"}}}}
+    with journal.connect(path) as db:
+        db.execute(
+            "INSERT INTO strategies (id, name, status, payload, updated_at) VALUES (?,?,?,?,?)",
+            (sid, name, status, json.dumps(payload), updated),
+        )
+
+
+def test_stamp_plan_strategy_names_the_active_strategy(tmp_path):
+    db = tmp_path / "j.sqlite"
+    _save_strategy(db, "Tight base")
+    _save_strategy(db, "Draft only", status="draft", sid="bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb")
+    plan = _plan("AAPL")
+    journal.stamp_plan_strategy([plan], path=db)
+    assert plan.strategy_name == "Tight base"
+    assert plan.strategy_id == "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+    assert "AAPL | Tight base |" in plan.card_text()
+
+
+def test_stamp_plan_strategy_joins_every_nightly_strategy(tmp_path):
+    db = tmp_path / "j.sqlite"
+    _save_strategy(db, "Tight base", updated="2026-10-08T15:00:00+00:00")
+    _save_strategy(
+        db,
+        "Opening range",
+        sid="bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        updated="2026-10-09T15:00:00+00:00",
+    )
+    _save_strategy(db, "Paused book", status="paused", sid="cccccccc-cccc-4ccc-8ccc-cccccccccccc")
+    plan = _plan("MSFT")
+    journal.stamp_plan_strategy([plan], path=db)
+    assert plan.strategy_name == "Opening range · Tight base"
+    assert plan.strategy_id is None
