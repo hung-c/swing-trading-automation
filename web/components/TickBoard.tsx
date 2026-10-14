@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Link from "next/link";
+import { Fragment, useEffect, useState } from "react";
 
 import { formatCountdown, type JobName, type PcState, type TickStatus } from "@/lib/tick-status";
 
@@ -53,9 +54,14 @@ export function TickBoard({ initial }: { initial: TickStatus }) {
         body: JSON.stringify({ job }),
       });
       if (!res.ok) throw new Error(String(res.status));
+      const nextQueued = !queued;
       setData((prev) => ({
         ...prev,
-        jobs: prev.jobs.map((row) => (row.job === job ? { ...row, queued: !queued } : row)),
+        jobs: prev.jobs.map((row) => (row.job === job ? { ...row, queued: nextQueued } : row)),
+        boards: prev.boards.map((board) => ({
+          ...board,
+          jobs: board.jobs.map((row) => (row.job === job ? { ...row, queued: nextQueued } : row)),
+        })),
       }));
     } catch {
       setQueueError(queued ? "Could not cancel that job." : "Could not queue that job.");
@@ -121,11 +127,13 @@ export function TickBoard({ initial }: { initial: TickStatus }) {
         <section className="card" style={{ marginBottom: 16 }}>
           <h3 style={{ margin: "0 0 6px" }}>On the next tick</h3>
           <p className="lede">
-            {data.strategies.length ? `Active ${data.strategies.join(", ")}.` : "No strategy is active, so the tick will not start a job."}
+            {data.boards.length
+              ? "Each strategy lists the jobs it joins. The clock is that strategy's own start."
+              : "No strategy is active, so the tick will not start a job."}
             {data.sessionNote ? ` ${data.sessionNote}` : ""} Run next tick asks Swing Tick to start that job on its next wake-up.
           </p>
           {queueError ? <p className="warn-list">{queueError}</p> : null}
-          {data.jobs.length ? (
+          {data.boards.length ? (
             <table>
               <thead>
                 <tr>
@@ -136,26 +144,44 @@ export function TickBoard({ initial }: { initial: TickStatus }) {
                 </tr>
               </thead>
               <tbody>
-                {data.jobs.map((job) => (
-                  <tr key={job.job}>
-                    <td>{job.label}</td>
-                    <td className="mono">{job.when}</td>
-                    <td>
-                      <span className={job.queued && !job.due ? "chip warn" : chip(job.reason, job.due)}>
-                        {job.queued && !job.due ? "Queued" : job.due ? "Due" : job.reason}
-                      </span>
-                    </td>
-                    <td>
-                      <button
-                        className="btn ghost tiny"
-                        type="button"
-                        disabled={busyJob === job.job}
-                        onClick={() => queueJob(job.job, job.queued)}
-                      >
-                        {job.queued ? "Cancel" : "Run next tick"}
-                      </button>
-                    </td>
-                  </tr>
+                {data.boards.map((board) => (
+                  <Fragment key={board.id}>
+                    <tr className="strategy-head">
+                      <td colSpan={4}>
+                        <span className="strategy-kicker">Strategy</span>
+                        <Link href={`/strategies/${board.id}`}>{board.name}</Link>
+                      </td>
+                    </tr>
+                    {board.jobs.length ? (
+                      board.jobs.map((job) => (
+                        <tr key={`${board.id}-${job.job}`}>
+                          <td>{job.label}</td>
+                          <td className="mono">{job.when}</td>
+                          <td>
+                            <span className={job.queued && !job.due ? "chip warn" : chip(job.reason, job.due)}>
+                              {job.queued && !job.due ? "Queued" : job.due ? "Due" : job.reason}
+                            </span>
+                          </td>
+                          <td>
+                            <button
+                              className="btn ghost tiny"
+                              type="button"
+                              disabled={busyJob === job.job}
+                              onClick={() => queueJob(job.job, job.queued)}
+                            >
+                              {job.queued ? "Cancel" : "Run next tick"}
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr key={`${board.id}-empty`}>
+                        <td colSpan={4} className="pc-note">
+                          No jobs turned on.
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                 ))}
               </tbody>
             </table>
@@ -164,13 +190,16 @@ export function TickBoard({ initial }: { initial: TickStatus }) {
 
       <section className="card">
         <h3 style={{ margin: "0 0 6px" }}>Recent jobs</h3>
-        <p className="lede">Job-level runs from the last four days. This page refreshes every 20 seconds.</p>
+        <p className="lede">
+          Job-level runs from the last four days. The strategy column lists every active strategy that joins that job. This page refreshes every 20 seconds.
+        </p>
         {refreshFailed ? <p className="warn-list">Refresh failed. Showing the last reading.</p> : null}
         {data.recent.length ? (
           <table>
             <thead>
               <tr>
                 <th>Job</th>
+                <th>Strategy</th>
                 <th>Status</th>
                 <th>When</th>
                 <th>Note</th>
@@ -180,6 +209,7 @@ export function TickBoard({ initial }: { initial: TickStatus }) {
               {data.recent.map((run) => (
                 <tr key={run.id}>
                   <td>{run.label}</td>
+                  <td>{run.strategy}</td>
                   <td>
                     <span className={statusChip(run.status)}>{statusLabel(run.status)}</span>
                   </td>

@@ -81,9 +81,17 @@ export type JobOutlook = {
   reason: string;
 };
 
+/** Jobs one active strategy has turned on, each with that strategy's own clock. */
+export type StrategyBoard = {
+  id: string;
+  name: string;
+  jobs: JobOutlook[];
+};
+
 export type RecentRun = {
   id: number;
   label: string;
+  strategy: string;
   status: string;
   when: string;
   note: string;
@@ -103,6 +111,7 @@ export type TickStatus = {
   jobsLabel: string;
   jobsHint: string;
   jobs: JobOutlook[];
+  boards: StrategyBoard[];
   sessionNote: string | null;
   recent: RecentRun[];
   strategies: string[];
@@ -292,24 +301,32 @@ function clocksOf(payload: unknown): Record<string, { enabled?: unknown; start?:
   return clocks as Record<string, { enabled?: unknown; start?: unknown; end?: unknown }>;
 }
 
+type ClockBag = Record<string, { enabled?: unknown; start?: unknown; end?: unknown }>;
+
+function clockWindow(clocks: ClockBag, job: JobName, early: boolean): Window | null {
+  const raw = clocks[job];
+  if (!raw || raw.enabled !== true) return null;
+  let start = parseHhmm(raw.start, DEFAULT_START[job]);
+  if (job === "nightly" && early && NIGHTLY_SHIFTS[start]) start = NIGHTLY_SHIFTS[start];
+  const end = job === "intraday" ? parseHhmm(raw.end, DEFAULT_INTRADAY_END) : null;
+  return { start, end };
+}
+
 function windows(strategies: StrategyInput[], early: boolean): Partial<Record<JobName, Window>> {
   const found: Partial<Record<JobName, Window>> = {};
   for (const row of strategies) {
     if (row.status !== "active") continue;
     const clocks = clocksOf(row.payload);
     for (const job of JOB_ORDER) {
-      const raw = clocks[job];
-      if (!raw || raw.enabled !== true) continue;
-      let start = parseHhmm(raw.start, DEFAULT_START[job]);
-      if (job === "nightly" && early && NIGHTLY_SHIFTS[start]) start = NIGHTLY_SHIFTS[start];
-      const end = job === "intraday" ? parseHhmm(raw.end, DEFAULT_INTRADAY_END) : null;
+      const window = clockWindow(clocks, job, early);
+      if (!window) continue;
       const current = found[job];
       if (!current) {
-        found[job] = { start, end };
+        found[job] = { ...window };
         continue;
       }
-      if (start < current.start) current.start = start;
-      if (end && (!current.end || end > current.end)) current.end = end;
+      if (window.start < current.start) current.start = window.start;
+      if (window.end && (!current.end || window.end > current.end)) current.end = window.end;
     }
   }
   return found;
@@ -389,27 +406,82 @@ function outlook(strategies: StrategyInput[], runs: TickRun[], at: Date, queued:
   const trading = session === "open" || session === "early";
   const open = windows(strategies, early);
   return JOB_ORDER.map((job) => {
-    const waiting = queued.has(job);
     const window = open[job];
     if (!window) {
-      return { job, label: JOB_LABEL[job], due: false, queued: waiting, when: "Off", reason: "Off" };
+      return { job, label: JOB_LABEL[job], due: false, queued: queued.has(job), when: "Off", reason: "Off" };
     }
-    const when = windowText(job, window, early);
-    if (!trading) {
-      return { job, label: JOB_LABEL[job], due: false, queued: waiting, when, reason: "Market is closed" };
-    }
-    if (!inWindow(job, window, at, early)) {
-      const beforeFriday = job === "report" && etParts(at).weekday !== "Fri";
-      let reason = `Starts at ${clockLabel(window.start)} ET`;
-      if (beforeFriday) reason = "Friday only";
-      else if (job === "intraday") reason = `Outside ${when}`;
-      else if (onceState(window.start, at) === "after") reason = `Outside ${clockLabel(window.start)} ET`;
-      return { job, label: JOB_LABEL[job], due: false, queued: waiting, when, reason };
-    }
-    const blocked = blockReason(job, window, runs, at);
-    if (blocked) return { job, label: JOB_LABEL[job], due: false, queued: waiting, when, reason: blocked };
-    return { job, label: JOB_LABEL[job], due: true, queued: waiting, when, reason: "Due" };
+    return oneJob(job, window, at, early, trading, runs, queued);
   });
+}
+
+function oneJob(
+  job: JobName,
+  window: Window,
+  at: Date,
+  early: boolean,
+  trading: boolean,
+  runs: TickRun[],
+  queued: ReadonlySet<string>,
+): JobOutlook {
+  const waiting = queued.has(job);
+  const when = windowText(job, window, early);
+  if (!trading) {
+    return { job, label: JOB_LABEL[job], due: false, queued: waiting, when, reason: "Market is closed" };
+  }
+  if (!inWindow(job, window, at, early)) {
+    const beforeFriday = job === "report" && etParts(at).weekday !== "Fri";
+    let reason = `Starts at ${clockLabel(window.start)} ET`;
+    if (beforeFriday) reason = "Friday only";
+    else if (job === "intraday") reason = `Outside ${when}`;
+    else if (onceState(window.start, at) === "after") reason = `Outside ${clockLabel(window.start)} ET`;
+    return { job, label: JOB_LABEL[job], due: false, queued: waiting, when, reason };
+  }
+  const blocked = blockReason(job, window, runs, at);
+  if (blocked) return { job, label: JOB_LABEL[job], due: false, queued: waiting, when, reason: blocked };
+  return { job, label: JOB_LABEL[job], due: true, queued: waiting, when, reason: "Due" };
+}
+
+/** One board per active strategy. A job appears only under strategies that turned it on, with that strategy's clock. */
+function strategyBoards(
+  strategies: StrategyInput[],
+  runs: TickRun[],
+  at: Date,
+  queued: ReadonlySet<string>,
+): StrategyBoard[] {
+  const p = etParts(at);
+  const session = sessionOn(p.year, p.month, p.day);
+  const early = session === "early";
+  const trading = session === "open" || session === "early";
+  return strategies
+    .filter((row) => row.status === "active")
+    .map((row) => {
+      const clocks = clocksOf(row.payload);
+      const jobs = JOB_ORDER.flatMap((job) => {
+        const window = clockWindow(clocks, job, early);
+        return window ? [oneJob(job, window, at, early, trading, runs, queued)] : [];
+      });
+      return { id: row.id, name: row.name, jobs };
+    });
+}
+
+function joiners(strategies: StrategyInput[]): Partial<Record<JobName, string>> {
+  const found: Partial<Record<JobName, string[]>> = {};
+  for (const row of strategies) {
+    if (row.status !== "active") continue;
+    const clocks = clocksOf(row.payload);
+    for (const job of JOB_ORDER) {
+      if (clocks[job]?.enabled !== true) continue;
+      const list = found[job] ?? [];
+      list.push(row.name);
+      found[job] = list;
+    }
+  }
+  const labeled: Partial<Record<JobName, string>> = {};
+  for (const job of JOB_ORDER) {
+    const names = found[job];
+    if (names?.length) labeled[job] = names.join(", ");
+  }
+  return labeled;
 }
 
 function jobLevel(runs: TickRun[]): TickRun[] {
@@ -467,7 +539,7 @@ const PC_LABEL: Record<PcState, string> = {
   silent: "Unknown",
 };
 
-function recentRows(runs: TickRun[], now: Date): RecentRun[] {
+function recentRows(runs: TickRun[], now: Date, owners: Partial<Record<JobName, string>>): RecentRun[] {
   return jobLevel(runs)
     .slice()
     .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime() || b.id - a.id)
@@ -477,9 +549,11 @@ function recentRows(runs: TickRun[], now: Date): RecentRun[] {
       const status = stale ? "stalled" : run.status;
       const step = typeof run.summary?.current === "string" ? run.summary.current : null;
       const note = run.error?.trim() || (step ? stepTitle(run.job, step) : "");
+      const strategy = isJobName(run.job) ? owners[run.job] : undefined;
       return {
         id: run.id,
         label: JOB_LABEL[run.job as JobName] ?? run.job,
+        strategy: strategy || "—",
         status,
         when: formatSpan(run.startedAt, run.finishedAt, now),
         note,
@@ -506,6 +580,7 @@ function emptyStatus(now: Date, configured: boolean, readError: boolean): TickSt
     jobsLabel: "Unknown",
     jobsHint: "journal unread",
     jobs: [],
+    boards: [],
     sessionNote: null,
     recent: [],
     strategies: [],
@@ -531,6 +606,8 @@ export function buildTickStatus(input: {
   const state = pcState(now, input.heartbeat, live.length > 0);
   const queued = new Set(input.queued ?? []);
   const jobs = next ? outlook(input.strategies, input.runs, next, queued) : [];
+  const boards = next ? strategyBoards(input.strategies, input.runs, next, queued) : [];
+  const owners = joiners(input.strategies);
   const due = jobs.filter((job) => job.due).map((job) => job.label);
   const queuedLabels = jobs.filter((job) => job.queued).map((job) => job.label);
   const active = input.strategies.filter((row) => row.status === "active").map((row) => row.name);
@@ -642,8 +719,9 @@ export function buildTickStatus(input: {
     jobsLabel,
     jobsHint,
     jobs,
+    boards,
     sessionNote,
-    recent: recentRows(input.runs, now),
+    recent: recentRows(input.runs, now, owners),
     strategies: active,
     waiting,
   };

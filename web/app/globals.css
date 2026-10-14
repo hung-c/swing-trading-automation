@@ -141,6 +141,21 @@ table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nu
 th { text-align: left; color: var(--faint); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 500; padding: 8px 10px; border-bottom: 1px solid var(--line); }
 td { padding: 10px; border-bottom: 1px solid var(--line); }
 tr:hover td { background: rgba(255,255,255,0.02); }
+tr.strategy-head td {
+  background: var(--card-2);
+  font-weight: 600;
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+tr.strategy-head:hover td { background: var(--card-2); }
+.strategy-kicker {
+  display: block;
+  color: var(--faint);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
 .pos { color: var(--green); }
 .neg { color: var(--red); }
 
