@@ -8,6 +8,7 @@ import {
   type Bar,
   type ChartLevels,
   type Frame,
+  type LevelId,
   clampWindow,
   computeLine,
   defaultOn,
@@ -41,7 +42,17 @@ function valueAt(values: (number | null)[], i: number): number | null {
   return null;
 }
 
-export function PlanChart({ symbol, pattern, levels }: { symbol: string; pattern: string; levels: ChartLevels }) {
+export function PlanChart({
+  symbol,
+  pattern,
+  levels,
+  names,
+}: {
+  symbol: string;
+  pattern: string;
+  levels: ChartLevels;
+  names?: Partial<Record<LevelId, string>>;
+}) {
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const modelRef = useRef<DrawInput | null>(null);
@@ -125,8 +136,13 @@ export function PlanChart({ symbol, pattern, levels }: { symbol: string; pattern
   );
 
   const marks = useMemo(
-    () => LEVELS.filter((level) => defaultOn(level.id, frame) && levels[level.id] > 0).map((level) => ({ ...level, price: levels[level.id] })),
-    [frame, levels],
+    () =>
+      LEVELS.filter((level) => defaultOn(level.id, frame) && levels[level.id] > 0).map((level) => ({
+        ...level,
+        name: names?.[level.id] ?? level.name,
+        price: levels[level.id],
+      })),
+    [frame, levels, names],
   );
 
   const drawn = useMemo(() => {

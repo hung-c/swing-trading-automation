@@ -10,9 +10,9 @@ export default async function PlanDetail({ params }: { params: Promise<{ symbol:
   const { symbol } = await params;
   const sym = symbol.toUpperCase();
   const [found, snap] = await Promise.all([loadPlan(sym), loadSnapshot()]);
-  const saved = snap.watchlist.find((w) => w.symbol === sym);
-  const plan = saved?.plan ?? found?.plan;
-  const day = found?.day ?? saved?.planDate ?? snap.planDate ?? snap.brief?.date;
+  const saved = snap.watchlist.filter((w) => w.symbol === sym);
+  const plan = saved[0]?.plan ?? found?.plan;
+  const day = found?.day ?? saved[0]?.planDate ?? snap.planDate ?? snap.brief?.date;
   const kinds = plan?.chart_paths ? Object.keys(plan.chart_paths) : ["weekly", "daily", "intraday"];
 
   return (
@@ -27,11 +27,15 @@ export default async function PlanDetail({ params }: { params: Promise<{ symbol:
             <div className="page-head">
               <h1 style={{ margin: 0 }}>{plan.symbol}</h1>
             </div>
-            <PlanCard
-              plan={plan}
-              price={snap.prices[plan.symbol]}
-              saved={saved || plan.status !== "rejected" ? Boolean(saved) : undefined}
-            />
+            {saved.length ? (
+              saved.map((item) => (
+                <div key={item.id} style={{ marginBottom: 12 }}>
+                  <PlanCard plan={item.plan} item={item} peers={saved} price={snap.prices[item.symbol]} />
+                </div>
+              ))
+            ) : (
+              <PlanCard plan={plan} price={snap.prices[plan.symbol]} saved={plan.status !== "rejected" ? false : undefined} />
+            )}
             <div style={{ marginTop: 16 }}>
               <PlanChart
                 symbol={plan.symbol}

@@ -14,7 +14,7 @@ import pandas as pd
 from swing.calendars import ET, now_et
 from swing.config import Cfg, load_config
 from swing.indicators import session_vwap, time_adjusted_rvol
-from swing.models import Alert, PlanCard, Position, RegimeReport
+from swing.models import Alert, PlanCard, Position, RegimeReport, WatchPlan
 
 log = logging.getLogger(__name__)
 
@@ -40,6 +40,7 @@ def evaluate_plan(
     regime: RegimeReport | None,
     ts: datetime,
     cfg: Cfg | None = None,
+    plan_id: str = "",
 ) -> Alert | None:
     cfg = cfg or load_config()
     p = cfg.intraday
@@ -53,7 +54,7 @@ def evaluate_plan(
         rvol = time_adjusted_rvol(intra, pd.Timestamp(ts), p.rvol_baseline_sessions)
     above_yc = (price > yesterday_close) if yesterday_close else None
 
-    base = dict(ts=ts, symbol=plan.symbol, price=price, resistance=res, vwap=vwap, rvol=rvol, above_yesterday_close=above_yc)
+    base = dict(ts=ts, symbol=plan.symbol, price=price, resistance=res, vwap=vwap, rvol=rvol, above_yesterday_close=above_yc, plan_id=plan_id)
     chase_level = res * (1 + p.no_chase_pct_above_resistance / 100.0)
 
     if price >= chase_level:
@@ -96,7 +97,7 @@ def evaluate_position(pos: Position, price: float, ts: datetime) -> Alert | None
 
 
 def run(
-    plans: list[PlanCard],
+    plans: list[PlanCard] | list[WatchPlan],
     positions: list[Position],
     prices: dict[str, float],
     yesterday_close: dict[str, float],
@@ -107,11 +108,13 @@ def run(
 ) -> list[Alert]:
     ts = ts or now_et()
     out: list[Alert] = []
-    for plan in plans:
+    for item in plans:
+        plan = item.plan if isinstance(item, WatchPlan) else item
+        plan_id = item.id if isinstance(item, WatchPlan) else ""
         px = prices.get(plan.symbol)
         if px is None:
             continue
-        a = evaluate_plan(plan, px, yesterday_close.get(plan.symbol), intraday.get(plan.symbol), regime, ts, cfg)
+        a = evaluate_plan(plan, px, yesterday_close.get(plan.symbol), intraday.get(plan.symbol), regime, ts, cfg, plan_id)
         if a:
             out.append(a)
     for pos in positions:

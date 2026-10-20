@@ -1,6 +1,7 @@
+import Link from "next/link";
 import { Empty, Nav, Setup } from "@/components/Nav";
-import { CloseButton, PositionForm } from "@/components/PositionForm";
-import { openR, usd } from "@/lib/format";
+import { CloseButton, PositionForm, PositionPlanSwitch } from "@/components/PositionForm";
+import { openR, stanceLabel, usd } from "@/lib/format";
 import { loadSnapshot } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +16,7 @@ export default async function PositionsPage() {
           <div>
             <h1>Positions</h1>
             <p className="lede">
-              Execution stays on Webull. Record the fill here so heat, 2R, and the 8-EMA trail have something to manage.
+              Execution stays on Webull. Record the fill against one plan. Each update says keep, exit, sell half, raise stop, or decide.
             </p>
           </div>
         </div>
@@ -35,6 +36,7 @@ export default async function PositionsPage() {
                   <th>Last</th>
                   <th>R</th>
                   <th>Shares</th>
+                  <th>Stance</th>
                   <th></th>
                 </tr>
               </thead>
@@ -42,10 +44,13 @@ export default async function PositionsPage() {
                 {snap.positions.map((p) => {
                   const last = snap.prices[p.symbol];
                   const r = openR(p.entry, p.stop, p.initial_stop, last);
+                  const label = stanceLabel(p.stance);
                   return (
                     <tr key={p.symbol}>
                       <td>
-                        {p.symbol}
+                        <Link href={`/positions/${p.symbol}`} className="pos-link">
+                          {p.symbol}
+                        </Link>
                         {p.half_sold ? <span className="chip">half</span> : null}
                       </td>
                       <td>{p.opened}</td>
@@ -54,6 +59,19 @@ export default async function PositionsPage() {
                       <td>{last != null ? usd(last) : "—"}</td>
                       <td className={r != null && r < 0 ? "neg" : "pos"}>{r != null ? `${r.toFixed(2)}R` : "—"}</td>
                       <td>{p.shares}</td>
+                      <td>
+                        {label ? (
+                          <span
+                            className={`chip ${p.stance === "exit" ? "bad" : p.stance === "keep" ? "ok" : "warn"}`}
+                            data-tip={p.stanceReason ?? label}
+                          >
+                            {label}
+                          </span>
+                        ) : (
+                          "—"
+                        )}
+                        <PositionPlanSwitch symbol={p.symbol} planId={p.planId} plans={snap.watchlist} />
+                      </td>
                       <td>
                         <CloseButton symbol={p.symbol} />
                       </td>
@@ -65,7 +83,7 @@ export default async function PositionsPage() {
           </div>
         ) : null}
         <h3 style={{ margin: "28px 0 0" }}>Log a fill</h3>
-        <PositionForm />
+        <PositionForm plans={snap.watchlist} />
       </main>
     </>
   );

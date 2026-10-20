@@ -1,11 +1,32 @@
+import { redirect } from "next/navigation";
+import { AlertBoard } from "@/components/AlertBoard";
 import { Empty, Nav, Setup } from "@/components/Nav";
-import { etTime, usd } from "@/lib/format";
-import { loadSnapshot } from "@/lib/queries";
+import { loadAlertList } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
-export default async function AlertsPage() {
-  const snap = await loadSnapshot();
+type Search = { page?: string; symbol?: string; condition?: string };
+
+function alertHref(symbol: string, condition: string, page: number): string {
+  const params = new URLSearchParams();
+  if (symbol) params.set("symbol", symbol);
+  if (condition) params.set("condition", condition);
+  if (page > 1) params.set("page", String(page));
+  const q = params.toString();
+  return q ? `/alerts?${q}` : "/alerts";
+}
+
+export default async function AlertsPage({ searchParams }: { searchParams: Promise<Search> }) {
+  const q = await searchParams;
+  const requested = Math.max(1, Number.parseInt(q.page ?? "1", 10) || 1);
+  const symbol = (q.symbol ?? "").trim();
+  const condition = (q.condition ?? "").trim();
+  const data = await loadAlertList({ page: requested, symbol, condition });
+  if (data.configured && data.total > 0 && requested !== data.page) {
+    redirect(alertHref(symbol, condition, data.page));
+  }
+  const filtering = symbol.length > 0 || condition.length > 0;
+
   return (
     <>
       <Nav active="/alerts" />
@@ -18,42 +39,20 @@ export default async function AlertsPage() {
             </p>
           </div>
         </div>
-        {!snap.configured ? <Setup /> : null}
-        {snap.configured && !snap.alerts.length ? (
+        {!data.configured ? <Setup /> : null}
+        {data.configured && data.total === 0 && !filtering ? (
           <Empty title="No alerts yet" body="Save a plan to the watchlist. The 15-minute job then writes one row per saved symbol, condition, and day." />
         ) : null}
-        {snap.alerts.length ? (
-          <div className="card" style={{ padding: 0 }}>
-            <table>
-              <thead>
-                <tr>
-                  <th>Time ET</th>
-                  <th>Symbol</th>
-                  <th>Condition</th>
-                  <th>Price</th>
-                  <th>RVOL</th>
-                  <th>Message</th>
-                </tr>
-              </thead>
-              <tbody>
-                {snap.alerts.map((a) => (
-                  <tr key={`${a.day}-${a.symbol}-${a.condition}`}>
-                    <td className="mono">{etTime(a.ts)}</td>
-                    <td>{a.symbol}</td>
-                    <td>
-                      {a.condition}
-                      {a.actionable ? <span className="chip ok">go</span> : null}
-                    </td>
-                    <td>{usd(a.price)}</td>
-                    <td>{a.rvol != null ? a.rvol.toFixed(2) : "—"}</td>
-                    <td className="notes" style={{ color: "var(--muted)" }}>
-                      {a.message}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        {data.configured && (data.total > 0 || filtering) ? (
+          <AlertBoard
+            alerts={data.alerts}
+            total={data.total}
+            page={data.page}
+            pageSize={data.pageSize}
+            conditions={data.conditions}
+            symbol={symbol}
+            condition={condition}
+          />
         ) : null}
       </main>
     </>

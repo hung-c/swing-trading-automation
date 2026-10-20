@@ -1,6 +1,7 @@
 import type { ApiTest, ApiUsage, AvBudget } from "./apis";
 import { asDate, asObj, first, getSql, rows, toPngBuffer } from "./db";
-import type { AlertRow, DailyBrief, PlanCard, PositionRow, Snapshot, TradeRow, WatchItem } from "./types";
+import type { AlertRow, DailyBrief, PlanCard, PositionRow, PositionStance, Snapshot, TradeRow, WatchItem } from "./types";
+import { ensureSchema } from "./schema";
 import { loadWatchlist } from "./watchlist";
 
 type StrategyLabel = { id: string | null; name: string | null };
@@ -51,6 +52,96 @@ function boolish(v: unknown): boolean {
   return v === true || v === 1 || v === "1";
 }
 
+function mapAlert(r: Record<string, unknown>): AlertRow {
+  return {
+    day: asDate(r.day),
+    ts: String(r.ts),
+    symbol: String(r.symbol),
+    condition: String(r.condition),
+    price: r.price == null ? null : Number(r.price),
+    rvol: r.rvol == null ? null : Number(r.rvol),
+    vwap: r.vwap == null ? null : Number(r.vwap),
+    actionable: boolish(r.actionable),
+    message: String(r.message ?? ""),
+    planId: r.plan_id == null ? undefined : String(r.plan_id),
+  };
+}
+
+export const ALERT_PAGE_SIZE = 80;
+
+export type AlertList = {
+  configured: boolean;
+  alerts: AlertRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  conditions: string[];
+};
+
+/** Every alert for a watched symbol or an open position, one page at a time. */
+export async function loadAlertList(opts: { page: number; symbol: string; condition: string }): Promise<AlertList> {
+  const sql = getSql();
+  const empty: AlertList = { configured: Boolean(sql), alerts: [], total: 0, page: 1, pageSize: ALERT_PAGE_SIZE, conditions: [] };
+  if (!sql) return empty;
+
+  const symbol = opts.symbol.trim().toUpperCase().replace(/[%_\\]/g, "");
+  const condition = opts.condition.trim();
+  const pattern = `%${symbol}%`;
+
+  try {
+    await ensureSchema();
+    const [countRaw, conditionsRaw] = await Promise.all([
+      sql`
+        SELECT COUNT(*)::int AS n FROM alerts
+        WHERE symbol IN (
+          SELECT symbol FROM watchlist
+          UNION
+          SELECT symbol FROM positions WHERE closed IS NULL
+        )
+        AND (${condition} = '' OR condition = ${condition})
+        AND (${symbol} = '' OR symbol LIKE ${pattern})
+      `,
+      sql`
+        SELECT DISTINCT condition FROM alerts
+        WHERE symbol IN (
+          SELECT symbol FROM watchlist
+          UNION
+          SELECT symbol FROM positions WHERE closed IS NULL
+        )
+        ORDER BY condition
+      `,
+    ]);
+    const total = Number(first<{ n: number }>(countRaw)?.n ?? 0);
+    const pages = Math.max(1, Math.ceil(total / ALERT_PAGE_SIZE));
+    const page = Math.min(Math.max(1, opts.page), pages);
+    const offset = (page - 1) * ALERT_PAGE_SIZE;
+    const alertsRaw = await sql`
+      SELECT day, ts, symbol, condition, price, rvol, vwap, actionable, message, plan_id
+      FROM alerts
+      WHERE symbol IN (
+        SELECT symbol FROM watchlist
+        UNION
+        SELECT symbol FROM positions WHERE closed IS NULL
+      )
+      AND (${condition} = '' OR condition = ${condition})
+      AND (${symbol} = '' OR symbol LIKE ${pattern})
+      ORDER BY ts DESC, symbol, condition, plan_id
+      LIMIT ${ALERT_PAGE_SIZE} OFFSET ${offset}
+    `;
+    return {
+      configured: true,
+      alerts: rows<Record<string, unknown>>(alertsRaw).map(mapAlert),
+      total,
+      page,
+      pageSize: ALERT_PAGE_SIZE,
+      conditions: rows<{ condition: string }>(conditionsRaw).map((r) => String(r.condition)),
+    };
+  } catch (e) {
+    console.error("loadAlertList failed", e);
+    return { ...empty, configured: true };
+  }
+}
+
 export async function loadSnapshot(): Promise<Snapshot> {
   const sql = getSql();
   const empty: Snapshot = {
@@ -68,6 +159,7 @@ export async function loadSnapshot(): Promise<Snapshot> {
   if (!sql) return empty;
 
   try {
+    await ensureSchema();
     const [briefs, alertsRaw, positionsRaw, tradesRaw, priceKv, planDateRow, watchlist, strategyRaw] = await Promise.all([
       sql`SELECT brief_date, kind, payload, created_at FROM briefs ORDER BY brief_date DESC, created_at DESC LIMIT 12`,
       sql`SELECT day, ts, symbol, condition, price, rvol, vwap, actionable, message FROM alerts ORDER BY ts DESC LIMIT 80`,
@@ -97,17 +189,7 @@ export async function loadSnapshot(): Promise<Snapshot> {
       pricesAt = v.at ?? priceRow.updated_at ?? null;
     }
 
-    const alerts: AlertRow[] = rows<Record<string, unknown>>(alertsRaw).map((r) => ({
-      day: asDate(r.day),
-      ts: String(r.ts),
-      symbol: String(r.symbol),
-      condition: String(r.condition),
-      price: r.price == null ? null : Number(r.price),
-      rvol: r.rvol == null ? null : Number(r.rvol),
-      vwap: r.vwap == null ? null : Number(r.vwap),
-      actionable: boolish(r.actionable),
-      message: String(r.message ?? ""),
-    }));
+    const alerts: AlertRow[] = rows<Record<string, unknown>>(alertsRaw).map(mapAlert);
 
     const positions: PositionRow[] = rows<Record<string, unknown>>(positionsRaw).map(mapPosition);
     const trades: TradeRow[] = rows<Record<string, unknown>>(tradesRaw).map((r) => ({
@@ -159,7 +241,27 @@ function mapPosition(r: Record<string, unknown>): PositionRow {
     exit_price: r.exit_price == null ? null : Number(r.exit_price),
     r_multiple: r.r_multiple == null ? null : Number(r.r_multiple),
     resistance: r.resistance == null ? null : Number(r.resistance),
+    planId: r.plan_id == null || r.plan_id === "" ? null : String(r.plan_id),
+    stance: stanceOf(r.stance),
+    stanceReason: r.stance_reason == null ? null : String(r.stance_reason),
+    originalPlan: planOf(r.original_plan),
   };
+}
+
+function planOf(v: unknown): PlanCard | null {
+  if (v == null || v === "") return null;
+  try {
+    const plan = asObj<PlanCard>(v);
+    if (typeof plan.entry !== "number" || typeof plan.stop !== "number") return null;
+    return plan;
+  } catch {
+    return null;
+  }
+}
+
+function stanceOf(v: unknown): PositionStance | null {
+  if (v === "keep" || v === "exit" || v === "sell_half" || v === "raise_stop" || v === "decide") return v;
+  return null;
 }
 
 export async function loadApiUsage(): Promise<{ configured: boolean; usage: ApiUsage | null; av: AvBudget | null; test: ApiTest | null }> {

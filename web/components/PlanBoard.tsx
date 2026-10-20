@@ -2,6 +2,29 @@ import { PlanCard } from "@/components/PlanCard";
 import { etDate, scanStillOpen } from "@/lib/format";
 import type { PlanCard as Plan, WatchItem } from "@/lib/types";
 
+function rank(item: WatchItem): number {
+  if (item.role === "candidate") return 1;
+  if (!item.active) return 2;
+  return 0;
+}
+
+function groupWatch(items: WatchItem[]): { symbol: string; items: WatchItem[] }[] {
+  const order: string[] = [];
+  const bySymbol = new Map<string, WatchItem[]>();
+  for (const item of items) {
+    const list = bySymbol.get(item.symbol);
+    if (list) list.push(item);
+    else {
+      order.push(item.symbol);
+      bySymbol.set(item.symbol, [item]);
+    }
+  }
+  return order.map((symbol) => ({
+    symbol,
+    items: (bySymbol.get(symbol) ?? []).slice().sort((a, b) => rank(a) - rank(b) || a.savedAt.localeCompare(b.savedAt)),
+  }));
+}
+
 export function PlanBoard({
   plans,
   rejected,
@@ -22,19 +45,25 @@ export function PlanBoard({
   const scan = live ? (plans ?? []).filter((p) => p.status !== "rejected" && !saved.has(p.symbol)) : [];
   const unsaved = (plans ?? []).filter((p) => p.status !== "rejected" && !saved.has(p.symbol));
   const rejectedLive = live ? (rejected ?? []).filter((p) => p.status === "rejected") : [];
+  const groups = groupWatch(watchlist);
 
   return (
     <>
       <h3 style={{ margin: "22px 0 8px" }}>Watchlist</h3>
       <p className="lede" style={{ marginBottom: 12 }}>
-        Alerts run only for names you save here. A saved ticker stays until you remove it.
+        A ticker can hold several plans. Each one keeps the card from the day you saved it. Alerts run only for plans that are on.
       </p>
-      {watchlist.length ? (
-        <div className="grid grid-2">
-          {watchlist.map((w) => (
-            <PlanCard key={w.symbol} plan={w.plan} price={prices[w.symbol]} href={`/plans/${w.symbol}`} saved />
-          ))}
-        </div>
+      {groups.length ? (
+        groups.map((group) => (
+          <section key={group.symbol} className="plan-group">
+            <h3 style={{ margin: "8px 0" }}>{group.symbol}</h3>
+            <div className="grid grid-2">
+              {group.items.map((w) => (
+                <PlanCard key={w.id} plan={w.plan} item={w} peers={group.items} price={prices[w.symbol]} href={`/plans/${w.symbol}`} />
+              ))}
+            </div>
+          </section>
+        ))
       ) : (
         <div className="card empty">
           <h2>Watchlist is empty</h2>

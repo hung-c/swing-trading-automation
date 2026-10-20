@@ -89,6 +89,24 @@ def test_position_alerts():
     assert alerts.evaluate_position(pos, 105, ts) is None
 
 
+def test_watch_verdict_and_original_plan(cfg):
+    plan = _plan()
+    assert manage.judge_watch(plan, None, False, 1.0) is None
+    assert manage.judge_watch(plan, plan.stop - 0.1, False, 1.0)[0] == "out"
+    assert manage.judge_watch(plan, plan.resistance * 1.02, False, 1.0)[0] == "out"
+    assert manage.judge_watch(plan, plan.resistance * 0.99, True, 1.0)[0] == "out"
+    assert manage.judge_watch(plan, plan.stop + 1, False, 1.0)[0] == "still_good"
+
+    df = make_bars([(250, 40.0, 1.5)], start_price=70.0)
+    pos = Position(
+        symbol="X", opened=date(2026, 10, 1), entry=20, stop=1, initial_stop=1, shares=10,
+        target_2r=40, resistance=10, original_plan=plan,
+    )
+    assert manage.evaluate(pos, df, 50, None, cfg).action == "exit_failed_breakout"
+    assert manage.stance_name("exit_failed_breakout") == "exit"
+    assert manage.stance_name("hold") == "keep"
+
+
 def test_manage_rules(cfg):
     df = make_bars([(250, 40.0, 1.5)], start_price=70.0)
     last = float(df["close"].iloc[-1])

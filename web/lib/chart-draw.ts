@@ -459,7 +459,7 @@ function draw(ctx: CanvasRenderingContext2D, input: DrawInput, m: Measure) {
   for (const level of levels) {
     const y = m.yOf(level.price);
     if (y < price.y || y > price.y + price.h) continue;
-    tags.push({ y, color: level.color, text: formatPx(level.price) });
+    tags.push({ y, color: level.color, text: `${level.name} ${formatPx(level.price)}` });
   }
   tags.sort((a, b) => a.y - b.y);
   for (let i = 1; i < tags.length; i++) if (tags[i].y < tags[i - 1].y + 15) tags[i].y = tags[i - 1].y + 15;
