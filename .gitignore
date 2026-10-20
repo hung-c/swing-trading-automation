@@ -19,12 +19,13 @@ cache/
 *.png
 !docs/**/*.png
 
-# Journal lives in Neon. Never commit sqlite leftovers.
+# Journal lives in Neon. Never commit sqlite leftovers or the old Notion id map.
 state/*.sqlite
 state/*.sqlite-wal
 state/*.sqlite-shm
 state/*.log
 state/last-*.txt
+state/notion_ids.json
 
 # Next.js / Vercel
 web/node_modules/

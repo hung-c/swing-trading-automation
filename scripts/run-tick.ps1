@@ -2,10 +2,11 @@
 $ErrorActionPreference = "Stop"
 
 $Repo = "C:\swing-trading-strategy"
-$Uv = "C:\Users\Bend-Tech\.local\bin\uv.exe"
-if (-not (Test-Path $Uv)) {
-  throw "uv not found at $Uv"
+$UvCmd = Get-Command uv -ErrorAction SilentlyContinue
+if (-not $UvCmd) {
+  throw "uv not found on PATH. Install uv, then reopen the session that Task Scheduler runs."
 }
+$Uv = $UvCmd.Source
 
 Set-Location $Repo
 $State = Join-Path $Repo "state"

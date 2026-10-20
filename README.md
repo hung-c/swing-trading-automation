@@ -1,117 +1,76 @@
-# Swing Trading Automation
+# Swing desk
 
-Free-API Python pipeline that replaces the manual Finviz / Webull routine in
-"Quy Trình Giao Dịch Swing" (`Swing trade Routine.html`). It screens, scores,
-writes plan cards, checks market regime, raises intraday alerts and publishes
-English daily briefs to a **Vercel dashboard**. Execution stays manual: you copy
-the plan card into a Webull bracket order.
+A personal research desk that turns a written swing-trading routine into a scheduled pipeline and a dashboard. Each evening it screens the market, scores setups, and writes a plan card. During the session it watches those plans and raises alerts. Order entry stays manual.
 
-Vercel cannot run the pandas/Alpaca nightly job (too heavy, too slow). A Windows
-PC runs the jobs on Task Scheduler and writes them to Neon. The Next.js app in
-`web/` is the reading surface. GitHub Actions only runs tests on push.
+This is a research project, not a signal service.
 
-## What runs when (ET, NYSE trading days only)
+## How it runs
 
-The job PC runs one task, **Swing Tick**, every 15 minutes from 07:03 to 19:03 on weekdays. `swing tick` reads strategies with status `active` and starts whichever of these jobs is due. Start times are edited on each strategy's clock. Draft and paused strategies do not schedule anything. If two active strategies set different times, the earlier start wins.
+A Windows task fires every 15 minutes on weekdays. `swing tick` reads the clocks on strategies whose status is `active` and starts only the job that is due. Results land in Neon. The Next.js app only reads that database.
 
-| Job | Default | What |
+```mermaid
+flowchart LR
+  scheduler[TaskScheduler_SwingTick] --> tick[swing_tick]
+  tick --> premarket[premarket]
+  tick --> intraday[intraday]
+  tick --> nightly[nightly]
+  tick --> report[friday_report]
+  premarket --> neon[Neon_Postgres]
+  intraday --> neon
+  nightly --> neon
+  report --> neon
+  neon --> vercel[Vercel_Nextjs]
+```
+
+| Job | When (ET, NYSE days) | What it does |
 | --- | --- | --- |
-| `swing premarket` | once at 07:03 | SPY/QQQ vs MA50/MA200, ES/NQ futures, distribution days / follow-through, breadth, Faber 10-mo SMA, macro blackout (CPI/PPI/NFP/GDP/FOMC) -> sizing for today |
-| `swing intraday` | every 15 min, 10:03-15:48 | For each plan: resistance cross, > yesterday close, > VWAP, time-adjusted RVOL > 1.5, no-chase (> +1%) flag; stop / 2R checks for positions. The pass near the close also does management (failed-breakout exit, sell half at 2R, trail under 8 EMA, earnings <= 2 days) |
-| `swing nightly` | once at 16:48 (13:48 on early-close days) | Universe -> SIP bars -> Scan A -> weekly clear-sky + overhead supply -> 8-point trend score -> patterns -> plan cards -> news -> Groq prose -> Neon (briefs, plans, chart PNGs). A start time other than 16:48 is used as written, including on early-close days. A strategy still saved as 16:37 moves to 13:37. |
-| `swing report` | Friday 17:18, off until a strategy turns it on | Expectancy / SQN per pattern from the trade journal |
+| Premarket | once at 7:03 | Index trend, breadth, macro blackout, sizing for the day |
+| Intraday | every 15 min, 10:03–15:48 | Breakout checks on the plan cards, and stop / target checks on open positions |
+| Nightly | once after the close | Universe, bars, Scan A, patterns, plan cards, news, prose, charts |
+| Report | Friday, off until a strategy turns it on | Expectancy by pattern from the journal |
 
-A once-a-day job does not run again after it succeeds. A failed run is tried on the next tick. Intraday runs once on each 15-minute tick.
+A once-a-day job does not run again after it succeeds. A failed run is tried on the next tick. Draft and paused strategies do not schedule anything. If two active strategies set different times, the earlier start wins.
 
-Install that task on the job PC (it removes the older Premarket, Intraday, Nightly, and Report tasks):
+## Where it is deployed
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File C:\swing-trading-strategy\scripts\install-tick.ps1
-```
+- **Dashboard.** Vercel, with the project root set to `web/`. The app only reads Postgres, so the Hobby plan is enough. An optional password gates the UI. The address is not published here.
+- **Database.** Neon Postgres. The job PC and the Vercel app share one `DATABASE_URL`. Jobs refuse to start when it is missing.
+- **Runner.** One Windows PC that stays logged in and awake. Task Scheduler task name: `Swing Tick`.
+- **CI.** GitHub Actions runs the Python tests and a Next.js build on `ubuntu-latest`. It does not run the market jobs.
 
-The PC has to stay logged in and awake. `Get-ScheduledTask -TaskName 'Swing Tick'` should be the only Swing task. GitHub Actions does not schedule these jobs.
+## How the runner is set up
 
-All thresholds live in `config.yaml` (account size, risk %, Scan A filters and ladder, pattern geometry, regime table).
+`scripts/install-tick.ps1` removes the older Premarket, Intraday, Nightly, and Report tasks and registers one weekday task.
 
-## Data sources (free for personal use, verified 2026-10-07)
+- The trigger starts at 7:03 AM Eastern, converted to the PC's local time, then repeats every 15 minutes for 12 hours.
+- The task is allowed to wake the PC, start if the PC was asleep at the trigger time, and run only while that user is logged on.
+- Each fire runs `scripts/run-tick.ps1`, which calls `uv run swing tick`. `uv` is resolved from `PATH`, not from a user profile path.
+- `swing tick` writes a heartbeat row. The dashboard PC page reads it. That is how you can see the machine checked in without opening the PC.
 
-- Prices: Alpaca Market Data Basic (paper account; `feed=sip` for windows ending > 15 min ago gives consolidated volume). Fallback: Massive grouped-daily, then yfinance.
-- Universe / market cap / sector: Nasdaq Trader symbol directory + Nasdaq.com screener JSON (keyless). yfinance `info` for float; SEC EDGAR as tiebreaker.
-- Earnings: Finnhub calendar (primary), yfinance `calendar`, Alpha Vantage CSV. Without Finnhub/AV keys it falls back to yfinance per symbol.
-- News: Alpaca News (Benzinga). Alpha Vantage `NEWS_SENTIMENT` is premium so it is skipped on the free key. Fallback: Finnhub company-news, yfinance news.
-- Macro: `data/macro_static.yaml` (CPI/PPI/NFP; bls.gov blocks scripts), BEA JSON (GDP/PCE), FRED (optional key), `data/fomc.yaml`.
-- LLM prose: Groq (free) -> Gemini (free) -> plain template. The model only writes prose; every number comes from code and the output is Pydantic-validated.
-- Delivery: Vercel Next.js app (`web/`) reading Neon. Optional Telegram push for actionable alerts.
+Clocks live on each strategy in the dashboard, not in the scheduled task. Change a start time there; the next tick picks it up.
 
-## Setup
+## What the dashboard shows
 
-### 1. Pipeline (Python)
+Today is the nightly brief: regime, scan counts, and the plan board.
 
-1. `uv sync --extra dev`
-2. Copy `.env.example` to `.env` and fill the keys. Minimum useful set: `ALPACA_KEY/SECRET` (paper), `FINNHUB_KEY`, `GROQ_KEY`, **`DATABASE_URL`**.
-3. `uv run swing check` — config, calendar and which secrets are present.
-4. `uv run swing nightly --dry-run --force --limit 300` — first end-to-end run without writing the database; markdown + charts land in `out/`.
+![Today: regime, scan counts, and plan cards](docs/images/today.png)
 
-### 2. Database (Neon, required)
+A plan page is the card you would copy into a bracket order, with the chart the nightly job stored.
 
-The journal is **only** Neon. The PC jobs, a local `swing nightly`, and the Vercel app all use the same `DATABASE_URL`. SQLite exists solely inside pytest (`path=` tmp files).
+![Plan card and chart](docs/images/plan.png)
 
-1. Create a project at [console.neon.tech](https://console.neon.tech). Copy the connection string (`sslmode=require`).
-2. Put it in `.env` as `DATABASE_URL=...`
-3. `uv run swing db-init` — creates the tables in `db/schema.sql`.
-4. Add the same `DATABASE_URL` as a **Vercel env var**.
+Strategy clocks are what the runner reads. Only `active` strategies schedule jobs.
 
-If `DATABASE_URL` is missing, jobs refuse to run (they will not fall back to sqlite).
+![Strategy clocks](docs/images/strategies.png)
 
-### 3. Dashboard (Vercel)
+The PC page is the heartbeat. It shows whether the last tick ran, and which job is due next.
 
-1. Import this GitHub repo in [vercel.com](https://vercel.com/new).
-2. Set **Root Directory** to `web`.
-3. Environment variables: `DATABASE_URL` (same Neon string) and optional `DASHBOARD_PASSWORD` (gates the UI).
-4. Deploy. Local preview: `cd web && npm install && npm run dev` (needs `web/.env.local` with `DATABASE_URL`).
-5. After the next `swing nightly` the Today page fills in.
+![Job PC tick status](docs/images/pc.png)
 
-Vercel Hobby is enough — the app only reads Postgres.
+## Stack
 
-## Recording trades
+Python 3.12, uv, and Pydantic for the pipeline. Next.js on Vercel for the dashboard. Neon for the journal. Alpaca paper market data for prices. Groq, then Gemini, writes the brief prose; every number comes from code and is checked before it is stored.
 
-Execution is manual. Log fills on the **Positions** page, or from Python:
+Keys stay in `.env` (see `.env.example`). Nothing secret is committed.
 
-```python
-from datetime import date
-from swing import journal
-from swing.models import Position
-journal.upsert_position(Position(symbol="XYZ", opened=date.today(), entry=53.31, stop=50.08, initial_stop=50.08,
-                                 shares=7, target_2r=59.77, resistance=53.04, pattern="flat_base", sector="Technology"))
-journal.close_position("XYZ", exit_price=59.80, closed=date.today())
-```
-
-## Layout
-
-```
-src/swing/
-  config.py          config.yaml + .env
-  models.py          Pydantic contracts between agents
-  calendars.py       NYSE sessions, early closes, ET clock
-  journal.py         Neon journal (sqlite only in tests)
-  jobs.py            nightly / premarket / intraday / report
-  tick.py            15-minute due check over active strategy clocks
-  cli.py             swing check | should-run | tick | nightly | premarket | intraday | db-init | db-push | report | parity
-  ...
-web/                 Next.js App Router dashboard (Vercel)
-db/schema.sql        Postgres schema shared with the web app
-tests/
-```
-
-## Notes from the first live runs
-
-- Scan A on the 300-400 largest names returned 46-51 strict hits; Finviz showed 70 for the full market the same day. Expect 20-80 after the full universe.
-- Plans rejected for "stop > 12%" are the doc working as written (flat bases 13-15% deep are too loose). The doc's second stop option (under a tested support level inside the base) is tried automatically before rejecting.
-- On a $5,000 account many $200+ stocks size to 0-1 shares; those are listed as rejected with the reason so you can decide on fractional shares.
-- The distribution-day count only forces "no new entries" when the index is also >= 3% off its highs; near highs it downgrades to half size.
-- `python -m swing.extras.backtest NVDA ...` shows the breakout-volume rule (>= 1.5x 50-day average) is rarely met by mega-caps; the rules fit mid-caps better. Survivorship-biased, do not tune thresholds on it.
-
-## Not automated on purpose
-
-- Order placement (plan card -> Webull bracket by hand).
-- Any paid data (Finviz Elite, Finnhub candles, FMP screener, TradingView webhooks). `finvizfinance` scraping was rejected (ToS + Cloudflare).
+Setup for a second machine is in [docs/operations.md](docs/operations.md).
