@@ -71,6 +71,4 @@ The PC page is the heartbeat. It shows whether the last tick ran, and which job 
 
 Python 3.12, uv, and Pydantic for the pipeline. Next.js on Vercel for the dashboard. Neon for the journal. Alpaca paper market data for prices. Groq, then Gemini, writes the brief prose; every number comes from code and is checked before it is stored.
 
-Keys stay in `.env` (see `.env.example`). Nothing secret is committed.
-
 Setup for a second machine is in [docs/operations.md](docs/operations.md).
