@@ -114,6 +114,7 @@ export type AlertRow = {
   vwap: number | null;
   actionable: boolean;
   message: string;
+  planId?: string;
 };
 
 export type PositionStance = "keep" | "exit" | "sell_half" | "raise_stop" | "decide";

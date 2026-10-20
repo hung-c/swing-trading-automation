@@ -42,6 +42,22 @@ export function etTime(iso: string): string {
   return d.toLocaleString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit" });
 }
 
+/** Date, clock time, and Eastern zone (EDT or EST) for a timestamp. */
+export function etDateTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString("en-US", {
+    timeZone: "America/New_York",
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZoneName: "short",
+  });
+}
+
 export function todayEt(now = new Date()): string {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/New_York",
