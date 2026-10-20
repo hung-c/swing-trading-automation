@@ -8,11 +8,12 @@ from __future__ import annotations
 
 import json
 import logging
+from typing import Literal
 
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, ValidationError, field_validator
 
 from swing.config import Cfg, env, load_config
-from swing.models import BriefProse, DailyBrief
+from swing.models import BriefProse, DailyBrief, ManageAction, Position, RegimeReport
 
 log = logging.getLogger(__name__)
 
@@ -175,6 +176,94 @@ def template(brief: DailyBrief) -> BriefProse:
         risk_notes=(" ".join(risk) or "No open positions.")[:1200],
         tomorrow_checklist=checklist,
     )
+
+
+class StanceReview(BaseModel):
+    stance: Literal["keep", "exit", "sell_half", "raise_stop", "decide"] = "keep"
+    reason: str = ""
+
+    @field_validator("reason")
+    @classmethod
+    def _clip_reason(cls, v: str) -> str:
+        return str(v).strip()[:500]
+
+
+STANCE_SYSTEM = (
+    "You review one open swing position after a market update. "
+    "Use only the evidence JSON. Never invent prices, dates, headlines, or catalysts. "
+    "Return ONLY a JSON object with keys stance and reason. "
+    "stance is one of: keep, exit, sell_half, raise_stop, decide. "
+    "reason is one or two sentences that cite numbers already in the evidence. "
+    "If price is at or under live_stop, stance must be exit. "
+    "If price is under original_resistance, stance must be exit. "
+    "sell_half only when half_sold is false and price is at or above target_2r. "
+    "raise_stop only when half_sold is true and desk_rule is trail_stop_8ema. "
+    "decide only when earnings_decision is true. "
+    "Otherwise choose keep or exit from the position, the original plan, and the market regime."
+)
+
+
+def review_position(pos: Position | None, action: ManageAction, regime: RegimeReport | None, cfg: Cfg | None = None) -> tuple[str, str]:
+    """AI keep / exit / sell half / raise stop / decide. The desk rule wins when the model is missing or out of bounds."""
+    from swing.agents.manage import stance_name
+
+    rule = stance_name(action.action)
+    fallback = (rule, action.reason)
+    if pos is None:
+        return fallback
+    origin = pos.original_plan
+    price = action.price
+    hard_exit = action.action in ("stop_hit", "exit_failed_breakout")
+    allowed = {"exit"} if hard_exit else {"keep", "exit"}
+    if not hard_exit and action.action == "sell_half_2r":
+        allowed.add("sell_half")
+    if not hard_exit and action.action == "trail_stop_8ema":
+        allowed.add("raise_stop")
+    if not hard_exit and action.action == "earnings_decision":
+        allowed.add("decide")
+    facts = {
+        "symbol": pos.symbol,
+        "price": price,
+        "live_stop": pos.stop,
+        "fill_entry": pos.entry,
+        "initial_stop": pos.initial_stop,
+        "shares": pos.shares,
+        "target_2r": pos.target_2r,
+        "half_sold": pos.half_sold,
+        "open_r": round((price - pos.entry) / pos.risk_per_share, 2) if price is not None and pos.risk_per_share else None,
+        "desk_rule": action.action,
+        "desk_reason": action.reason,
+        "earnings_decision": action.action == "earnings_decision",
+        "original_resistance": None if origin is None else origin.resistance,
+        "original_plan": None
+        if origin is None
+        else {
+            "pattern": origin.pattern,
+            "resistance": origin.resistance,
+            "entry": origin.entry,
+            "stop": origin.stop,
+            "target_2r": origin.target_2r,
+            "target_3r": origin.target_3r,
+        },
+        "market": None
+        if regime is None
+        else {
+            "sizing": regime.sizing,
+            "spy_above_50": regime.spy_above_50,
+            "spy_above_200": regime.spy_above_200,
+            "qqq_above_50": regime.qqq_above_50,
+            "qqq_above_200": regime.qqq_above_200,
+            "futures_red": regime.futures_red,
+            "notes": list(regime.notes)[:6],
+        },
+    }
+    found = judge(STANCE_SYSTEM, facts, StanceReview, cfg)
+    if found is None:
+        return fallback
+    body, _model = found
+    if body.stance not in allowed or not body.reason:
+        return fallback
+    return body.stance, body.reason
 
 
 def write(brief: DailyBrief, cfg: Cfg | None = None) -> tuple[BriefProse, str]:

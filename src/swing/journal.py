@@ -11,12 +11,13 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
+import uuid
 from contextlib import contextmanager
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 from swing.config import ROOT, env, load_config
-from swing.models import Alert, PlanCard, Position
+from swing.models import Alert, PlanCard, Position, WatchPlan, same_plan
 
 log = logging.getLogger(__name__)
 
@@ -26,16 +27,20 @@ CREATE TABLE IF NOT EXISTS plans (
   shares INTEGER, target_2r REAL, status TEXT, quality REAL, trend_score INTEGER, sector TEXT, earnings_date TEXT,
   payload TEXT NOT NULL, PRIMARY KEY (plan_date, symbol));
 CREATE TABLE IF NOT EXISTS watchlist (
-  symbol TEXT PRIMARY KEY, saved_at TEXT NOT NULL, plan_date TEXT, payload TEXT NOT NULL);
+  id TEXT PRIMARY KEY, symbol TEXT NOT NULL, saved_at TEXT NOT NULL, plan_date TEXT,
+  active INTEGER NOT NULL DEFAULT 1, role TEXT NOT NULL DEFAULT 'saved', original_payload TEXT NOT NULL,
+  verdict TEXT, verdict_reason TEXT, verdict_at TEXT, triggered INTEGER NOT NULL DEFAULT 0);
+CREATE INDEX IF NOT EXISTS watchlist_symbol_idx ON watchlist (symbol);
 CREATE TABLE IF NOT EXISTS positions (
   symbol TEXT PRIMARY KEY, opened TEXT, entry REAL, stop REAL, initial_stop REAL, shares REAL, target_2r REAL,
-  pattern TEXT, sector TEXT, half_sold INTEGER DEFAULT 0, closed TEXT, exit_price REAL, r_multiple REAL, resistance REAL);
+  pattern TEXT, sector TEXT, half_sold INTEGER DEFAULT 0, closed TEXT, exit_price REAL, r_multiple REAL, resistance REAL,
+  plan_id TEXT, original_plan TEXT, stance TEXT, stance_reason TEXT, stance_at TEXT);
 CREATE TABLE IF NOT EXISTS trades (
   id INTEGER PRIMARY KEY AUTOINCREMENT, symbol TEXT, opened TEXT, closed TEXT, entry REAL, initial_stop REAL,
   exit_price REAL, shares REAL, r_multiple REAL, pattern TEXT, sector TEXT);
 CREATE TABLE IF NOT EXISTS alerts (
-  day TEXT NOT NULL, ts TEXT NOT NULL, symbol TEXT NOT NULL, condition TEXT NOT NULL, price REAL, rvol REAL, vwap REAL,
-  actionable INTEGER, message TEXT, PRIMARY KEY (day, symbol, condition));
+  day TEXT NOT NULL, ts TEXT NOT NULL, symbol TEXT NOT NULL, condition TEXT NOT NULL, plan_id TEXT NOT NULL DEFAULT '',
+  price REAL, rvol REAL, vwap REAL, actionable INTEGER, message TEXT, PRIMARY KEY (day, symbol, condition, plan_id));
 CREATE TABLE IF NOT EXISTS briefs (
   brief_date TEXT NOT NULL, kind TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT, PRIMARY KEY (brief_date, kind));
 CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT NOT NULL, updated_at TEXT);
@@ -117,6 +122,77 @@ def _sql_statements(sql: str) -> list[str]:
     return out
 
 
+def _pg_cols(con, table: str) -> set[str]:
+    rows = con.execute(
+        """SELECT column_name FROM information_schema.columns
+           WHERE table_schema = 'public' AND table_name = %s""",
+        (table,),
+    ).fetchall()
+    return {r[0] for r in rows}
+
+
+def _pg_pk(con, table: str) -> list[str]:
+    rows = con.execute(
+        """SELECT a.attname
+           FROM pg_constraint c
+           JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = ANY (c.conkey)
+           WHERE c.conrelid = %s::regclass AND c.contype = 'p'
+           ORDER BY array_position(c.conkey, a.attnum)""",
+        (table,),
+    ).fetchall()
+    return [r[0] for r in rows]
+
+
+def _migrate_postgres(con) -> None:
+    """CREATE IF NOT EXISTS cannot add columns or change a primary key. Upgrade journals created before multi-plan."""
+    watch = _pg_cols(con, "watchlist")
+    if watch and "id" not in watch:
+        con.execute("ALTER TABLE watchlist ADD COLUMN id TEXT")
+        con.execute("ALTER TABLE watchlist ADD COLUMN active INTEGER NOT NULL DEFAULT 1")
+        con.execute("ALTER TABLE watchlist ADD COLUMN role TEXT NOT NULL DEFAULT 'saved'")
+        con.execute("ALTER TABLE watchlist ADD COLUMN original_payload JSONB")
+        con.execute("ALTER TABLE watchlist ADD COLUMN verdict TEXT")
+        con.execute("ALTER TABLE watchlist ADD COLUMN verdict_reason TEXT")
+        con.execute("ALTER TABLE watchlist ADD COLUMN verdict_at TIMESTAMPTZ")
+        con.execute("ALTER TABLE watchlist ADD COLUMN triggered INTEGER NOT NULL DEFAULT 0")
+        con.execute("UPDATE watchlist SET id = symbol WHERE id IS NULL")
+        if "payload" in watch:
+            con.execute("UPDATE watchlist SET original_payload = payload WHERE original_payload IS NULL")
+        con.execute("ALTER TABLE watchlist DROP CONSTRAINT IF EXISTS watchlist_pkey")
+        con.execute("ALTER TABLE watchlist ALTER COLUMN id SET NOT NULL")
+        con.execute("ALTER TABLE watchlist ALTER COLUMN original_payload SET NOT NULL")
+        con.execute("ALTER TABLE watchlist ADD PRIMARY KEY (id)")
+        log.info("postgres: migrated watchlist to one row per plan")
+    elif watch and _pg_pk(con, "watchlist") != ["id"]:
+        con.execute("UPDATE watchlist SET id = symbol WHERE id IS NULL")
+        con.execute("ALTER TABLE watchlist DROP CONSTRAINT IF EXISTS watchlist_pkey")
+        con.execute("ALTER TABLE watchlist ALTER COLUMN id SET NOT NULL")
+        con.execute("ALTER TABLE watchlist ADD PRIMARY KEY (id)")
+    watch = _pg_cols(con, "watchlist")
+    if watch and "payload" in watch and "original_payload" in watch:
+        con.execute("UPDATE watchlist SET original_payload = payload WHERE original_payload IS NULL")
+        con.execute("ALTER TABLE watchlist DROP COLUMN payload")
+    con.execute("CREATE INDEX IF NOT EXISTS watchlist_symbol_idx ON watchlist (symbol)")
+
+    alerts = _pg_cols(con, "alerts")
+    if alerts and "plan_id" not in alerts:
+        con.execute("ALTER TABLE alerts ADD COLUMN plan_id TEXT NOT NULL DEFAULT ''")
+        con.execute("ALTER TABLE alerts DROP CONSTRAINT IF EXISTS alerts_pkey")
+        con.execute("ALTER TABLE alerts ADD PRIMARY KEY (day, symbol, condition, plan_id)")
+        log.info("postgres: alerts primary key now includes plan_id")
+
+    positions = _pg_cols(con, "positions")
+    for col, ddl in (
+        ("plan_id", "TEXT"),
+        ("original_plan", "JSONB"),
+        ("stance", "TEXT"),
+        ("stance_reason", "TEXT"),
+        ("stance_at", "TIMESTAMPTZ"),
+    ):
+        if positions and col not in positions:
+            con.execute(f"ALTER TABLE positions ADD COLUMN {col} {ddl}")
+
+
 def init_postgres(url: str) -> None:
     import psycopg
 
@@ -124,6 +200,7 @@ def init_postgres(url: str) -> None:
     with psycopg.connect(url, autocommit=True) as con:
         for stmt in _sql_statements(sql):
             con.execute(stmt)  # type: ignore[arg-type]
+        _migrate_postgres(con)
     _PG_READY.add(url)
 
 
@@ -134,20 +211,60 @@ def _sqlite_cols(con: sqlite3.Connection, table: str) -> set[str]:
 def migrate_sqlite(con: sqlite3.Connection) -> None:
     """CREATE IF NOT EXISTS cannot add columns; rebuild leftover tables from the Notion-era sqlite file."""
     con.executescript(SQLITE_SCHEMA)
-    if "day" not in _sqlite_cols(con, "alerts"):
+    alert_cols = _sqlite_cols(con, "alerts")
+    if "day" not in alert_cols or "plan_id" not in alert_cols:
         con.execute("ALTER TABLE alerts RENAME TO alerts_old")
         con.execute(
             """CREATE TABLE alerts (
               day TEXT NOT NULL, ts TEXT NOT NULL, symbol TEXT NOT NULL, condition TEXT NOT NULL,
+              plan_id TEXT NOT NULL DEFAULT '',
               price REAL, rvol REAL, vwap REAL, actionable INTEGER, message TEXT,
-              PRIMARY KEY (day, symbol, condition))"""
+              PRIMARY KEY (day, symbol, condition, plan_id))"""
+        )
+        old_cols = _sqlite_cols(con, "alerts_old")
+        if "day" in old_cols and "plan_id" in old_cols:
+            con.execute(
+                """INSERT OR IGNORE INTO alerts (day, ts, symbol, condition, plan_id, price, rvol, vwap, actionable, message)
+                   SELECT day, ts, symbol, condition, plan_id, price, rvol, vwap, actionable, message FROM alerts_old"""
+            )
+        elif "day" in old_cols:
+            con.execute(
+                """INSERT OR IGNORE INTO alerts (day, ts, symbol, condition, price, rvol, vwap, actionable, message)
+                   SELECT day, ts, symbol, condition, price, rvol, vwap, actionable, message FROM alerts_old"""
+            )
+        else:
+            con.execute(
+                """INSERT OR IGNORE INTO alerts (day, ts, symbol, condition, price, rvol, vwap, actionable, message)
+                   SELECT substr(ts, 1, 10), ts, symbol, condition, price, rvol, vwap, actionable, message FROM alerts_old"""
+            )
+        con.execute("DROP TABLE alerts_old")
+        log.info("sqlite: migrated alerts (day, plan_id)")
+    watch_cols = _sqlite_cols(con, "watchlist")
+    if watch_cols and "id" not in watch_cols:
+        con.execute("ALTER TABLE watchlist RENAME TO watchlist_old")
+        con.execute(
+            """CREATE TABLE watchlist (
+              id TEXT PRIMARY KEY, symbol TEXT NOT NULL, saved_at TEXT NOT NULL, plan_date TEXT,
+              active INTEGER NOT NULL DEFAULT 1, role TEXT NOT NULL DEFAULT 'saved', original_payload TEXT NOT NULL,
+              verdict TEXT, verdict_reason TEXT, verdict_at TEXT, triggered INTEGER NOT NULL DEFAULT 0)"""
         )
         con.execute(
-            """INSERT OR IGNORE INTO alerts (day, ts, symbol, condition, price, rvol, vwap, actionable, message)
-               SELECT substr(ts, 1, 10), ts, symbol, condition, price, rvol, vwap, actionable, message FROM alerts_old"""
+            """INSERT INTO watchlist (id, symbol, saved_at, plan_date, active, role, original_payload, triggered)
+               SELECT symbol, symbol, saved_at, plan_date, 1, 'saved', payload, 0 FROM watchlist_old"""
         )
-        con.execute("DROP TABLE alerts_old")
-        log.info("sqlite: migrated alerts (added day)")
+        con.execute("DROP TABLE watchlist_old")
+        con.execute("CREATE INDEX IF NOT EXISTS watchlist_symbol_idx ON watchlist (symbol)")
+        log.info("sqlite: migrated watchlist to one row per plan")
+    pos_cols = _sqlite_cols(con, "positions")
+    for col, decl in (
+        ("plan_id", "TEXT"),
+        ("original_plan", "TEXT"),
+        ("stance", "TEXT"),
+        ("stance_reason", "TEXT"),
+        ("stance_at", "TEXT"),
+    ):
+        if pos_cols and col not in pos_cols:
+            con.execute(f"ALTER TABLE positions ADD COLUMN {col} {decl}")
     if "created_at" not in _sqlite_cols(con, "briefs"):
         con.execute("ALTER TABLE briefs RENAME TO briefs_old")
         con.execute(
@@ -368,58 +485,163 @@ def update_plan_status(plan_date: date, symbol: str, status: str, path: Path | N
 
 
 # ---------- watchlist ----------
-def watchlist_symbols(path: Path | None = None) -> set[str]:
+def _watch(r: dict) -> WatchPlan:
+    verdict = r.get("verdict")
+    role = str(r.get("role") or "saved")
+    return WatchPlan(
+        id=str(r["id"]),
+        symbol=str(r["symbol"]),
+        saved_at=_when(r.get("saved_at")),
+        plan_date=_date(r.get("plan_date")),
+        active=bool(r.get("active")),
+        role=role if role in ("saved", "candidate") else "saved",
+        plan=PlanCard.model_validate(_json(r["original_payload"])),
+        verdict=verdict if verdict in ("still_good", "out") else None,
+        verdict_reason=r.get("verdict_reason"),
+        verdict_at=_when(r.get("verdict_at")),
+        triggered=bool(r.get("triggered")),
+    )
+
+
+def _when(v) -> datetime | None:
+    if v is None or v == "":
+        return None
+    if isinstance(v, datetime):
+        return v
+    text = str(v).replace("Z", "+00:00")
+    try:
+        return datetime.fromisoformat(text)
+    except ValueError:
+        return None
+
+
+def list_watch(path: Path | None = None) -> list[WatchPlan]:
     with connect(path) as db:
-        rows = db.all("SELECT symbol FROM watchlist")
-    return {str(r["symbol"]) for r in rows}
+        rows = db.all("SELECT * FROM watchlist ORDER BY symbol, saved_at, id")
+    return [_watch(r) for r in rows]
+
+
+def watchlist_symbols(path: Path | None = None) -> set[str]:
+    return {w.symbol for w in list_watch(path)}
 
 
 def watchlist_plans(path: Path | None = None) -> list[PlanCard]:
-    """Saved names. Membership lasts until delete_watch; the payload is what alerts evaluate."""
+    """Active saved plans. Alerts and the premarket brief use this list. Candidates stay off it."""
+    return [w.plan for w in list_watch(path) if w.active and w.role == "saved"]
+
+
+def active_watch(path: Path | None = None) -> list[WatchPlan]:
+    return [w for w in list_watch(path) if w.active and w.role == "saved"]
+
+
+def get_watch(plan_id: str, path: Path | None = None) -> WatchPlan | None:
     with connect(path) as db:
-        rows = db.all("SELECT payload FROM watchlist ORDER BY saved_at, symbol")
-    return [PlanCard.model_validate(_json(r["payload"])) for r in rows]
+        r = db.one("SELECT * FROM watchlist WHERE id=?", (plan_id,))
+    return _watch(r) if r else None
 
 
-def save_watch(plan: PlanCard, plan_date: date | None, path: Path | None = None) -> None:
-    """Insert a saved name, or refresh its plan. saved_at stays on the original save."""
+def _insert_watch(plan: PlanCard, plan_date: date | None, role: str, active: bool, path: Path | None) -> str:
+    plan_id = uuid.uuid4().hex
     with connect(path) as db:
         db.execute(
-            """INSERT INTO watchlist (symbol, saved_at, plan_date, payload)
-               VALUES (?,?,?,?)
-               ON CONFLICT (symbol) DO UPDATE SET plan_date=excluded.plan_date, payload=excluded.payload""",
+            """INSERT INTO watchlist
+               (id, symbol, saved_at, plan_date, active, role, original_payload, triggered)
+               VALUES (?,?,?,?,?,?,?,0)""",
             (
-                plan.symbol,
+                plan_id,
+                plan.symbol.upper(),
                 datetime.now(UTC).isoformat(),
                 plan_date.isoformat() if plan_date else None,
+                int(active),
+                role,
                 _json_param(db, plan.model_dump(mode="json")),
             ),
         )
+    return plan_id
 
 
-def update_watch_payload(plan: PlanCard, path: Path | None = None) -> None:
-    """Write a new card onto an existing watchlist row without moving plan_date or saved_at."""
+def save_watch(plan: PlanCard, plan_date: date | None, path: Path | None = None) -> str:
+    """Save another plan for this ticker. A matching card is kept as-is, or turned back on."""
+    symbol = plan.symbol.upper()
+    for row in list_watch(path):
+        if row.symbol != symbol or not same_plan(row.plan, plan):
+            continue
+        if row.role != "saved" or not row.active:
+            with connect(path) as db:
+                db.execute("UPDATE watchlist SET role='saved', active=1 WHERE id=?", (row.id,))
+        return row.id
+    return _insert_watch(plan, plan_date, "saved", True, path)
+
+
+def delete_watch(key: str, path: Path | None = None) -> bool:
+    """Delete one plan by id, or every plan for a symbol when ``key`` is a ticker."""
+    raw = key.strip()
+    with connect(path) as db:
+        by_id = db.execute("DELETE FROM watchlist WHERE id=?", (raw,)).rowcount
+        if by_id and by_id > 0:
+            return True
+        by_symbol = db.execute("DELETE FROM watchlist WHERE symbol=?", (raw.upper(),)).rowcount
+    return by_symbol > 0
+
+
+def set_watch_active(plan_id: str, active: bool, path: Path | None = None) -> bool:
+    with connect(path) as db:
+        changed = db.execute("UPDATE watchlist SET active=? WHERE id=?", (int(active), plan_id)).rowcount
+    return changed == 1
+
+
+def add_candidate(plan_id: str, path: Path | None = None) -> bool:
+    """Turn an offered plan into an active saved plan. The frozen card stays."""
+    row = get_watch(plan_id, path)
+    if row is None or row.role != "candidate":
+        return False
+    with connect(path) as db:
+        db.execute("UPDATE watchlist SET role='saved', active=1 WHERE id=?", (plan_id,))
+    return True
+
+
+def switch_watch(candidate_id: str, retire_id: str, path: Path | None = None) -> bool:
+    """Turn one active plan off and watch the offered plan instead. Both rows stay."""
+    offered = get_watch(candidate_id, path)
+    current = get_watch(retire_id, path)
+    if offered is None or current is None or offered.role != "candidate":
+        return False
+    if offered.symbol != current.symbol or not current.active or current.role != "saved":
+        return False
+    with connect(path) as db:
+        db.execute("UPDATE watchlist SET active=0 WHERE id=?", (retire_id,))
+        db.execute("UPDATE watchlist SET role='saved', active=1 WHERE id=?", (candidate_id,))
+    return True
+
+
+def mark_watch_triggered(plan_id: str, path: Path | None = None) -> None:
+    with connect(path) as db:
+        db.execute("UPDATE watchlist SET triggered=1 WHERE id=?", (plan_id,))
+
+
+def set_watch_verdict(plan_id: str, verdict: str, reason: str, path: Path | None = None) -> None:
     with connect(path) as db:
         db.execute(
-            "UPDATE watchlist SET payload=? WHERE symbol=?",
-            (_json_param(db, plan.model_dump(mode="json")), plan.symbol),
+            "UPDATE watchlist SET verdict=?, verdict_reason=?, verdict_at=? WHERE id=? AND active=1",
+            (verdict, reason, datetime.now(UTC).isoformat(), plan_id),
         )
 
 
-def delete_watch(symbol: str, path: Path | None = None) -> bool:
-    with connect(path) as db:
-        removed = db.execute("DELETE FROM watchlist WHERE symbol=?", (symbol.upper(),)).rowcount
-    return removed == 1
-
-
 def refresh_watch(plans: list[PlanCard], plan_date: date, path: Path | None = None) -> int:
-    """Update cards for names already saved. Does not add scan hits on its own."""
-    saved = watchlist_symbols(path)
+    """Offer a candidate when a saved ticker has a new plan. Never rewrite a frozen card."""
+    existing = list_watch(path)
+    saved = {w.symbol for w in existing}
     n = 0
     for plan in plans:
-        if plan.symbol in saved and plan.status != "rejected":
-            save_watch(plan, plan_date, path)
-            n += 1
+        if plan.status == "rejected" or plan.symbol not in saved:
+            continue
+        if any(row.symbol == plan.symbol and same_plan(row.plan, plan) for row in existing):
+            continue
+        _insert_watch(plan, plan_date, "candidate", False, path)
+        n += 1
+        existing.append(
+            WatchPlan(id="", symbol=plan.symbol, plan=plan, role="candidate", active=False),
+        )
     return n
 
 
@@ -445,12 +667,35 @@ def drop_unsaved(before: date, path: Path | None = None) -> dict[str, int]:
 
 
 # ---------- positions ----------
+def _plan_card(raw) -> PlanCard | None:
+    if raw is None or raw == "":
+        return None
+    data = _json(raw)
+    if not isinstance(data, dict):
+        return None
+    known = {"bull_flag", "flat_base", "ascending_triangle", "cup_handle", "generic_base", "none"}
+    if data.get("pattern") not in known:
+        data["pattern"] = "none"
+    try:
+        return PlanCard.model_validate(data)
+    except Exception:  # noqa: BLE001
+        log.warning("position original plan could not be read")
+        return None
+
+
 def _position(r: dict) -> Position:
+    opened = _date(r["opened"])
+    stance = r.get("stance")
     return Position(
-        symbol=r["symbol"], opened=_date(r["opened"]), entry=r["entry"], stop=r["stop"],
+        symbol=r["symbol"], opened=opened or date.min, entry=r["entry"], stop=r["stop"],
         initial_stop=r["initial_stop"], shares=r["shares"], target_2r=r["target_2r"], pattern=r["pattern"] or "",
         sector=r["sector"], half_sold=bool(r["half_sold"]), resistance=r["resistance"],
         closed=_date(r["closed"]), exit_price=r["exit_price"], r_multiple=r["r_multiple"],
+        plan_id=r.get("plan_id"),
+        original_plan=_plan_card(r.get("original_plan")),
+        stance=stance if stance in ("keep", "exit", "sell_half", "raise_stop", "decide") else None,
+        stance_reason=r.get("stance_reason"),
+        stance_at=_when(r.get("stance_at")),
     )
 
 
@@ -462,20 +707,46 @@ def open_positions(path: Path | None = None) -> list[Position]:
 
 def upsert_position(p: Position, path: Path | None = None) -> None:
     with connect(path) as db:
+        origin_param = _json_param(db, p.original_plan.model_dump(mode="json")) if p.original_plan else None
         db.execute(
             """INSERT INTO positions (symbol, opened, entry, stop, initial_stop, shares, target_2r, pattern, sector,
-                                      half_sold, closed, exit_price, r_multiple, resistance)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                                      half_sold, closed, exit_price, r_multiple, resistance,
+                                      plan_id, original_plan, stance, stance_reason, stance_at)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                ON CONFLICT (symbol) DO UPDATE SET opened=excluded.opened, entry=excluded.entry, stop=excluded.stop,
                  initial_stop=excluded.initial_stop, shares=excluded.shares, target_2r=excluded.target_2r,
                  pattern=excluded.pattern, sector=excluded.sector, half_sold=excluded.half_sold, closed=excluded.closed,
-                 exit_price=excluded.exit_price, r_multiple=excluded.r_multiple, resistance=excluded.resistance""",
+                 exit_price=excluded.exit_price, r_multiple=excluded.r_multiple, resistance=excluded.resistance,
+                 plan_id=excluded.plan_id, original_plan=excluded.original_plan, stance=excluded.stance,
+                 stance_reason=excluded.stance_reason, stance_at=excluded.stance_at""",
             (
                 p.symbol, p.opened.isoformat(), p.entry, p.stop, p.initial_stop, p.shares, p.target_2r, p.pattern,
                 p.sector, int(p.half_sold), p.closed.isoformat() if p.closed else None, p.exit_price, p.r_multiple,
-                p.resistance,
+                p.resistance, p.plan_id, origin_param, p.stance, p.stance_reason,
+                p.stance_at.isoformat() if p.stance_at else None,
             ),
         )
+
+
+def set_position_stance(symbol: str, stance: str, reason: str, path: Path | None = None) -> None:
+    with connect(path) as db:
+        db.execute(
+            "UPDATE positions SET stance=?, stance_reason=?, stance_at=? WHERE symbol=? AND closed IS NULL",
+            (stance, reason, datetime.now(UTC).isoformat(), symbol.upper()),
+        )
+
+
+def bind_position_plan(symbol: str, plan_id: str, path: Path | None = None) -> bool:
+    """Point an open position at a plan. The fill prices stay. The frozen card is what later updates judge."""
+    row = get_watch(plan_id, path)
+    if row is None or row.symbol != symbol.upper():
+        return False
+    with connect(path) as db:
+        changed = db.execute(
+            "UPDATE positions SET plan_id=?, original_plan=? WHERE symbol=? AND closed IS NULL",
+            (row.id, _json_param(db, row.plan.model_dump(mode="json")), symbol.upper()),
+        ).rowcount
+    return changed == 1
 
 
 def close_position(symbol: str, exit_price: float, closed: date, path: Path | None = None) -> Position | None:
@@ -502,15 +773,15 @@ def heat_pct(account_size: float, positions: list[Position] | None = None, path:
 
 # ---------- alerts / briefs / kv ----------
 def save_alerts(alerts: list[Alert], path: Path | None = None) -> list[Alert]:
-    """Insert alerts; returns only the new ones (one alert per condition per symbol per day)."""
+    """Insert alerts; returns only the new ones (one alert per condition per plan per symbol per day)."""
     new = []
     with connect(path) as db:
         for a in alerts:
             cur = db.execute(
-                """INSERT INTO alerts (day, ts, symbol, condition, price, rvol, vwap, actionable, message)
-                   VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT (day, symbol, condition) DO NOTHING""",
-                (a.ts.strftime("%Y-%m-%d"), a.ts.isoformat(), a.symbol, a.condition, a.price, a.rvol, a.vwap,
-                 int(a.actionable), a.message),
+                """INSERT INTO alerts (day, ts, symbol, condition, plan_id, price, rvol, vwap, actionable, message)
+                   VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT (day, symbol, condition, plan_id) DO NOTHING""",
+                (a.ts.strftime("%Y-%m-%d"), a.ts.isoformat(), a.symbol, a.condition, a.plan_id or "", a.price, a.rvol,
+                 a.vwap, int(a.actionable), a.message),
             )
             if cur.rowcount == 1:
                 new.append(a)

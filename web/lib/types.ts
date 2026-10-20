@@ -116,6 +116,8 @@ export type AlertRow = {
   message: string;
 };
 
+export type PositionStance = "keep" | "exit" | "sell_half" | "raise_stop" | "decide";
+
 export type PositionRow = {
   symbol: string;
   opened: string;
@@ -131,6 +133,10 @@ export type PositionRow = {
   exit_price: number | null;
   r_multiple: number | null;
   resistance: number | null;
+  planId: string | null;
+  stance: PositionStance | null;
+  stanceReason: string | null;
+  originalPlan: PlanCard | null;
 };
 
 export type TradeRow = {
@@ -175,10 +181,17 @@ export type DailyBrief = {
 };
 
 export type WatchItem = {
+  id: string;
   symbol: string;
   savedAt: string;
   planDate: string | null;
+  active: boolean;
+  role: "saved" | "candidate";
   plan: PlanCard;
+  verdict: "still_good" | "out" | null;
+  verdictReason: string | null;
+  verdictAt: string | null;
+  triggered: boolean;
 };
 
 export type Snapshot = {

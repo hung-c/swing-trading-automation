@@ -1,7 +1,8 @@
+import Link from "next/link";
 import { Empty, Nav, Setup } from "@/components/Nav";
 import { PlanBoard } from "@/components/PlanBoard";
 import { RegimeBanner } from "@/components/RegimeBanner";
-import { etDate, num, usd } from "@/lib/format";
+import { etDate, num, stanceLabel, usd } from "@/lib/format";
 import { loadSnapshot } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
@@ -111,18 +112,35 @@ export default async function TodayPage() {
                       <th>Stop</th>
                       <th>Last</th>
                       <th>Shares</th>
+                      <th>Stance</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {snap.positions.map((p) => (
+                    {snap.positions.map((p) => {
+                      const label = stanceLabel(p.stance);
+                      return (
                       <tr key={p.symbol}>
-                        <td>{p.symbol}</td>
+                        <td>
+                          <Link href={`/positions/${p.symbol}`} className="pos-link">
+                            {p.symbol}
+                          </Link>
+                        </td>
                         <td>{usd(p.entry)}</td>
                         <td>{usd(p.stop)}</td>
                         <td>{snap.prices[p.symbol] != null ? usd(snap.prices[p.symbol]) : "—"}</td>
                         <td>{p.shares}</td>
+                        <td>
+                          {label ? (
+                            <span className={`chip ${p.stance === "exit" ? "bad" : p.stance === "keep" ? "ok" : "warn"}`} data-tip={p.stanceReason ?? label}>
+                              {label}
+                            </span>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </section>

@@ -1,6 +1,7 @@
 import type { ApiTest, ApiUsage, AvBudget } from "./apis";
 import { asDate, asObj, first, getSql, rows, toPngBuffer } from "./db";
-import type { AlertRow, DailyBrief, PlanCard, PositionRow, Snapshot, TradeRow, WatchItem } from "./types";
+import type { AlertRow, DailyBrief, PlanCard, PositionRow, PositionStance, Snapshot, TradeRow, WatchItem } from "./types";
+import { ensureSchema } from "./schema";
 import { loadWatchlist } from "./watchlist";
 
 type StrategyLabel = { id: string | null; name: string | null };
@@ -68,6 +69,7 @@ export async function loadSnapshot(): Promise<Snapshot> {
   if (!sql) return empty;
 
   try {
+    await ensureSchema();
     const [briefs, alertsRaw, positionsRaw, tradesRaw, priceKv, planDateRow, watchlist, strategyRaw] = await Promise.all([
       sql`SELECT brief_date, kind, payload, created_at FROM briefs ORDER BY brief_date DESC, created_at DESC LIMIT 12`,
       sql`SELECT day, ts, symbol, condition, price, rvol, vwap, actionable, message FROM alerts ORDER BY ts DESC LIMIT 80`,
@@ -159,7 +161,27 @@ function mapPosition(r: Record<string, unknown>): PositionRow {
     exit_price: r.exit_price == null ? null : Number(r.exit_price),
     r_multiple: r.r_multiple == null ? null : Number(r.r_multiple),
     resistance: r.resistance == null ? null : Number(r.resistance),
+    planId: r.plan_id == null || r.plan_id === "" ? null : String(r.plan_id),
+    stance: stanceOf(r.stance),
+    stanceReason: r.stance_reason == null ? null : String(r.stance_reason),
+    originalPlan: planOf(r.original_plan),
   };
+}
+
+function planOf(v: unknown): PlanCard | null {
+  if (v == null || v === "") return null;
+  try {
+    const plan = asObj<PlanCard>(v);
+    if (typeof plan.entry !== "number" || typeof plan.stop !== "number") return null;
+    return plan;
+  } catch {
+    return null;
+  }
+}
+
+function stanceOf(v: unknown): PositionStance | null {
+  if (v === "keep" || v === "exit" || v === "sell_half" || v === "raise_stop" || v === "decide") return v;
+  return null;
 }
 
 export async function loadApiUsage(): Promise<{ configured: boolean; usage: ApiUsage | null; av: AvBudget | null; test: ApiTest | null }> {

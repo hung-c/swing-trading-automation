@@ -255,6 +255,7 @@ class Alert(BaseModel):
     above_yesterday_close: bool | None = None
     actionable: bool = False
     message: str = ""
+    plan_id: str = ""
 
 
 class ManageAction(BaseModel):
@@ -280,6 +281,11 @@ class Position(BaseModel):
     closed: dt.date | None = None
     exit_price: float | None = None
     r_multiple: float | None = None
+    plan_id: str | None = None
+    original_plan: PlanCard | None = None
+    stance: Literal["keep", "exit", "sell_half", "raise_stop", "decide"] | None = None
+    stance_reason: str | None = None
+    stance_at: dt.datetime | None = None
 
     @property
     def risk_per_share(self) -> float:
@@ -287,6 +293,33 @@ class Position(BaseModel):
 
     def open_risk_usd(self) -> float:
         return max(0.0, (self.entry - self.stop)) * self.shares
+
+
+class WatchPlan(BaseModel):
+    """One saved or offered plan. ``plan`` is the card frozen at save time."""
+
+    id: str
+    symbol: str
+    saved_at: dt.datetime | None = None
+    plan_date: dt.date | None = None
+    active: bool = True
+    role: Literal["saved", "candidate"] = "saved"
+    plan: PlanCard
+    verdict: Literal["still_good", "out"] | None = None
+    verdict_reason: str | None = None
+    verdict_at: dt.datetime | None = None
+    triggered: bool = False
+
+
+def same_plan(a: PlanCard, b: PlanCard, tol: float = 0.005) -> bool:
+    """Same symbol, pattern, and levels within 0.5%. Anything else is a different plan."""
+    if a.symbol.upper() != b.symbol.upper() or a.pattern != b.pattern:
+        return False
+
+    def near(x: float, y: float) -> bool:
+        return abs(x - y) / max(abs(y), 1e-9) <= tol
+
+    return near(a.resistance, b.resistance) and near(a.entry, b.entry) and near(a.stop, b.stop)
 
 
 class BriefProse(BaseModel):

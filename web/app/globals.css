@@ -133,6 +133,19 @@ button, input, select { font: inherit; }
 .plan-watch:disabled { opacity: 0.55; cursor: default; }
 .plan:has(.plan-watch) { position: relative; }
 .plan:has(.plan-watch) .plan-top { padding-right: 32px; }
+.plan-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.plan-actions select {
+  font: inherit;
+  font-size: 12px;
+  background: var(--bg-2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px 6px;
+}
+.plan-group { margin-bottom: 8px; }
+.pos-link { color: inherit; font-weight: 650; text-decoration: none; }
+.pos-link:hover { color: var(--green); }
 
 .plan {
   background: var(--card);

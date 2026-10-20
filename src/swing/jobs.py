@@ -151,6 +151,40 @@ def _require_neon() -> None:
     journal.require()
 
 
+def _record_verdicts(prices: dict[str, float], cfg, dry_run: bool) -> None:
+    """Rewrite still-good / out-of-plan on each active saved plan. Skip a name with no price this pass."""
+    if dry_run:
+        return
+    chase = float(cfg.intraday.no_chase_pct_above_resistance)
+    for row in journal.active_watch():
+        judged = manage.judge_watch(row.plan, prices.get(row.symbol), row.triggered, chase)
+        if judged is None:
+            continue
+        verdict, reason = judged
+        journal.set_watch_verdict(row.id, verdict, reason)
+
+
+def _record_stance(actions, positions, regime, dry_run: bool, cfg) -> None:
+    """Ask the model for keep / exit / sell half / raise stop / decide. A missing model keeps the desk rule."""
+    if dry_run:
+        return
+    by_symbol = {p.symbol: p for p in positions}
+    for action in actions:
+        if action.reason == "no data this run":
+            continue
+        pos = by_symbol.get(action.symbol)
+        stance, reason = llm.review_position(pos, action, regime, cfg)
+        journal.set_position_stance(action.symbol, stance, reason)
+
+
+def _closes(frames: dict) -> dict[str, float]:
+    out: dict[str, float] = {}
+    for symbol, df in frames.items():
+        if df is not None and not df.empty:
+            out[symbol] = float(df["close"].iloc[-1])
+    return out
+
+
 def _expire_unsaved(dry_run: bool) -> None:
     """Scan names that were not saved to the watchlist do not carry into the next day."""
     if dry_run:
@@ -281,6 +315,7 @@ def run_nightly(args) -> int:
             reg = regime.run(session, frames, cfg)
             pos_earn = earnings.upcoming([p.symbol for p in positions], session, confirm_with_yf=True) if positions else {}
             actions = manage.run(positions, frames, {}, pos_earn, cfg) if positions else []
+            _record_stance(actions, positions, reg, args.dry_run, cfg)
             st.summary = {"sizing": reg.sizing, "manage": len(actions)}
         with run.step("evaluate") as st:
             note = evaluate.attach_plan_cards(watch, reg, tnews, cfg)
@@ -302,6 +337,7 @@ def run_nightly(args) -> int:
                 _store_charts(watch, day)
                 journal.save_plans(session, watch + rejected)
                 journal.refresh_watch(watch, session)
+                _record_verdicts(_closes(frames), cfg, args.dry_run)
                 journal.kv_set(f"regime:{session.isoformat()}", reg.model_dump(mode="json"))
                 journal.prune()
             _publish(brief, args.dry_run)
@@ -405,10 +441,10 @@ def run_intraday(args) -> int:
         _expire_unsaved(args.dry_run)
         ensure_dirs(cfg)
         with run.step("plans") as st:
-            plans = journal.watchlist_plans()
+            watched = journal.active_watch()
             positions = journal.open_positions()
-            symbols = sorted({p.symbol for p in plans} | {p.symbol for p in positions})
-            st.summary = {"watchlist": len(plans), "positions": len(positions)}
+            symbols = sorted({w.symbol for w in watched} | {p.symbol for p in positions})
+            st.summary = {"watchlist": len(watched), "positions": len(positions)}
         if not symbols:
             log.info("no watchlist names or positions; nothing to alert")
             reason = {"reason": "no watchlist names or positions"}
@@ -425,30 +461,21 @@ def run_intraday(args) -> int:
                 if not df.empty:
                     yday[s] = float(df["close"].iloc[-1])
             st.summary = {"symbols": len(symbols), "priced": sum(1 for v in prices.values() if v)}
+        priced = {s: float(v) for s, v in prices.items() if v}
+        _record_verdicts(priced, cfg, args.dry_run)
         with run.step("alerts") as st:
-            found = alerts.run(plans, positions, prices, yday, intra, reg, now, cfg)
+            found = alerts.run(watched, positions, prices, yday, intra, reg, now, cfg)
             st.summary = {"found": len(found)}
         with run.step("save") as st:
             if args.dry_run:
                 new = found
             else:
                 new = journal.save_alerts(found)
-                journal.kv_set("prices", {"at": now.isoformat(), "prices": {s: float(v) for s, v in prices.items() if v}})
+                journal.kv_set("prices", {"at": now.isoformat(), "prices": priced})
             for a in new:
                 print(f"{a.ts:%H:%M} {a.symbol} {a.condition}{' *' if a.actionable else ''}: {a.message}")
-                matched = next((p for p in plans if p.symbol == a.symbol), None)
-                if matched and not args.dry_run:
-                    ev = evaluate.attach_alert(matched, a, reg, cfg)
-                    triggered = a.condition == "breakout_confirmed"
-                    if triggered:
-                        matched.status = "triggered"
-                    if ev or triggered:
-                        journal.update_watch_payload(matched)
-                        pd_ = journal.latest_plan_date()
-                        if pd_ and journal.plan_on(pd_, matched.symbol):
-                            journal.save_plan_payload(pd_, matched)
-                            if matched.status == "triggered":
-                                journal.update_plan_status(pd_, matched.symbol, "triggered")
+                if a.condition == "breakout_confirmed" and a.plan_id and not args.dry_run:
+                    journal.mark_watch_triggered(a.plan_id)
             if new and not args.dry_run:
                 telegram.push_alerts(new)
             st.summary = {"new": len(new)}
@@ -459,7 +486,8 @@ def run_intraday(args) -> int:
             with run.step("manage") as st:
                 frames_full, _ = bars.daily([p.symbol for p in positions], years=1.0) if positions else ({}, "")
                 pos_earn = earnings.upcoming([p.symbol for p in positions], today_et()) if positions else {}
-                actions = manage.run(positions, frames_full, prices, pos_earn, cfg) if positions else []
+                actions = manage.run(positions, frames_full, priced, pos_earn, cfg) if positions else []
+                _record_stance(actions, positions, reg, args.dry_run, cfg)
                 if not args.dry_run:
                     evaluate.attach_management(actions, reg, cfg)
                 st.summary = {"actions": len(actions)}
@@ -471,6 +499,10 @@ def run_intraday(args) -> int:
                     print(f"MANAGE {m.symbol}: {m.action} - {m.reason}")
                 st.summary = {"actions": len(actions), "llm": brief.llm_provider}
         else:
+            if positions:
+                pos_earn = earnings.upcoming([p.symbol for p in positions], today_et())
+                live = manage.run(positions, {}, priced, pos_earn, cfg, allow_trail=False)
+                _record_stance(live, positions, reg, args.dry_run, cfg)
             run.skip("manage", "eod", summary={"reason": "not the closing window"})
         run.finish("ok", {"alerts": len(new)})
         return 0

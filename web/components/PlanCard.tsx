@@ -1,7 +1,8 @@
 import Link from "next/link";
+import { PlanActions } from "@/components/PlanActions";
 import { WatchButton } from "@/components/WatchButton";
 import { distanceToEntry, num, patternName, usd } from "@/lib/format";
-import type { PlanCard as Plan, PlanStatus } from "@/lib/types";
+import type { PlanCard as Plan, PlanStatus, WatchItem } from "@/lib/types";
 
 function statusTip(status: PlanStatus): string {
   if (status === "watch") return "Cleared the rules. A plan to watch, not an open trade.";
@@ -17,7 +18,21 @@ function distanceTip(tone: "ok" | "warn" | "chase", label: string): string {
   return `${label}. Last price is still under the planned entry.`;
 }
 
-export function PlanCard({ plan, price, href, saved }: { plan: Plan; price?: number; href?: string; saved?: boolean }) {
+export function PlanCard({
+  plan,
+  price,
+  href,
+  saved,
+  item,
+  peers,
+}: {
+  plan: Plan;
+  price?: number;
+  href?: string;
+  saved?: boolean;
+  item?: WatchItem;
+  peers?: WatchItem[];
+}) {
   const dist = distanceToEntry(plan, price);
   const strategies = (plan.strategy_name ?? "")
     .split("·")
@@ -39,6 +54,26 @@ export function PlanCard({ plan, price, href, saved }: { plan: Plan; price?: num
           <span className="chip" data-tip={statusTip(plan.status)}>
             {plan.status}
           </span>
+          {item?.role === "candidate" ? (
+            <span className="chip warn" data-tip="A new plan for this ticker. Add it beside the ones you already watch, or switch to it.">
+              new plan
+            </span>
+          ) : null}
+          {item && item.role === "saved" && !item.active ? (
+            <span className="chip" data-tip="This plan is off. It does not alert until you turn it on.">
+              off
+            </span>
+          ) : null}
+          {item?.verdict === "still_good" ? (
+            <span className="chip ok" data-tip={item.verdictReason ?? "The latest price still respects this saved plan."}>
+              still good to watch
+            </span>
+          ) : null}
+          {item?.verdict === "out" ? (
+            <span className="chip bad" data-tip={item.verdictReason ?? "The latest price no longer fits this saved plan."}>
+              out of plan
+            </span>
+          ) : null}
           {plan.earnings?.trading_days_away != null ? (
             <span
               className={`chip ${plan.earnings.trading_days_away <= 5 ? "warn" : ""}`}
@@ -80,6 +115,7 @@ export function PlanCard({ plan, price, href, saved }: { plan: Plan; price?: num
   );
   const extra = (
     <>
+      {item?.verdictReason ? <p className="notes">{item.verdictReason}</p> : null}
       {plan.rejected_reason ? <p className="notes">{plan.rejected_reason}</p> : null}
       {plan.notes?.length ? (
         <details className="plan-drop">
@@ -149,7 +185,8 @@ export function PlanCard({ plan, price, href, saved }: { plan: Plan; price?: num
       ))}
     </>
   );
-  const watch = saved != null ? <WatchButton symbol={plan.symbol} saved={saved} /> : null;
+  const watch = item ? null : saved != null ? <WatchButton symbol={plan.symbol} saved={saved} /> : null;
+  const actions = item ? <PlanActions item={item} peers={peers ?? []} /> : null;
   if (href) {
     return (
       <article className="plan">
@@ -158,6 +195,7 @@ export function PlanCard({ plan, price, href, saved }: { plan: Plan; price?: num
           {inner}
         </Link>
         {extra}
+        {actions}
       </article>
     );
   }
@@ -166,6 +204,7 @@ export function PlanCard({ plan, price, href, saved }: { plan: Plan; price?: num
       {watch}
       {inner}
       {extra}
+      {actions}
     </article>
   );
 }

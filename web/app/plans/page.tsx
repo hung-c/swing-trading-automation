@@ -16,7 +16,7 @@ export default async function PlansPage() {
           <div>
             <h1>Plan cards</h1>
             <p className="lede">
-              Save a ticker to the watchlist to arm alerts. It stays until you remove it. Names you leave unsaved are removed after that day.
+              Save a plan to arm alerts. A ticker can keep several plans, and each update says whether that plan is still good to watch or out of plan. Names you leave unsaved are removed after that day.
             </p>
           </div>
         </div>

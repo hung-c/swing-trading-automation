@@ -16,6 +16,15 @@ export function pct(n: number | null | undefined, digits = 1): string {
   return `${sign}${n.toFixed(digits)}%`;
 }
 
+export function stanceLabel(stance: string | null | undefined): string {
+  if (stance === "keep") return "Keep";
+  if (stance === "exit") return "Exit";
+  if (stance === "sell_half") return "Sell half";
+  if (stance === "raise_stop") return "Raise stop";
+  if (stance === "decide") return "Decide";
+  return "";
+}
+
 export function patternName(p: string): string {
   return p.replaceAll("_", " ");
 }
