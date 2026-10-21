@@ -102,6 +102,29 @@ button, input, select { font: inherit; }
 .remain { font-variant-numeric: tabular-nums; }
 .pc-note { color: var(--muted); font-size: 13px; max-width: 42ch; }
 .banner h2 { margin: 0 0 4px; font-size: 18px; }
+.regime-board { display: grid; gap: 10px; margin-top: 16px; }
+.regime-tape {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card);
+}
+.regime-kicker {
+  color: var(--faint); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+}
+.regime-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 10px; }
+.regime-card {
+  display: grid; gap: 6px; padding: 14px 16px;
+  border: 1px solid var(--line); border-radius: var(--radius); background: var(--card);
+}
+.regime-card.full { background: var(--green-dim); border-color: rgba(61, 207, 142, 0.35); }
+.regime-card.half { background: var(--amber-dim); border-color: rgba(230, 180, 80, 0.4); }
+.regime-card.none { background: var(--red-dim); border-color: rgba(239, 107, 115, 0.4); }
+.regime-card.open { background: var(--card); }
+.regime-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.regime-name { font-size: 16px; font-weight: 650; }
+.regime-name:hover { color: var(--green); }
+.regime-card p { margin: 0; color: var(--muted); font-size: 13px; }
+.regime-max { color: var(--text); }
+.regime-rules { color: var(--faint); font-size: 12px; }
 .pills { display: flex; flex-wrap: wrap; gap: 6px; }
 .pill {
   font-size: 12px; padding: 3px 8px; border-radius: 999px;

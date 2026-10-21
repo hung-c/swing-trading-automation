@@ -4,13 +4,23 @@ import { PlanBoard } from "@/components/PlanBoard";
 import { RegimeBanner } from "@/components/RegimeBanner";
 import { etDate, num, stanceLabel, usd } from "@/lib/format";
 import { loadSnapshot } from "@/lib/queries";
+import { loadStrategies } from "@/lib/strategies";
 
 export const dynamic = "force-dynamic";
 
 export default async function TodayPage() {
-  const snap = await loadSnapshot();
+  const [snap, book] = await Promise.all([
+    loadSnapshot(),
+    loadStrategies().catch((e) => {
+      console.error("strategy regime lookup failed", e);
+      return { configured: false, strategies: [] };
+    }),
+  ]);
   const b = snap.brief;
   const regime = snap.premarket?.regime ?? b?.regime ?? null;
+  const regimeStrategies = book.strategies
+    .filter((s) => s.status === "active")
+    .map((s) => ({ id: s.id, name: s.name, rules: s.strategy.regime }));
   const stamp = b ? `${etDate(b.date)} · ${b.kind}${b.llm_provider ? ` · ${b.llm_provider}` : ""}` : null;
 
   return (
@@ -29,7 +39,7 @@ export default async function TodayPage() {
                 <p className="lede">{b.prose?.market_summary}</p>
               </div>
             </div>
-            {regime ? <RegimeBanner regime={regime} /> : null}
+            {regime ? <RegimeBanner regime={regime} strategies={regimeStrategies} /> : null}
 
             <div className="grid grid-4" style={{ margin: "16px 0" }}>
               <div className="stat">
