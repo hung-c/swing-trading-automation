@@ -464,24 +464,20 @@ function strategyBoards(
     });
 }
 
-function joiners(strategies: StrategyInput[]): Partial<Record<JobName, string>> {
-  const found: Partial<Record<JobName, string[]>> = {};
+/** Strategies whose own clock was open at `at`. A job can start for one strategy and leave another waiting. */
+function openStrategies(strategies: StrategyInput[], job: JobName, at: Date): string {
+  const p = etParts(at);
+  const session = sessionOn(p.year, p.month, p.day);
+  if (session !== "open" && session !== "early") return "";
+  const early = session === "early";
+  const names: string[] = [];
   for (const row of strategies) {
     if (row.status !== "active") continue;
-    const clocks = clocksOf(row.payload);
-    for (const job of JOB_ORDER) {
-      if (clocks[job]?.enabled !== true) continue;
-      const list = found[job] ?? [];
-      list.push(row.name);
-      found[job] = list;
-    }
+    const window = clockWindow(clocksOf(row.payload), job, early);
+    if (!window || !inWindow(job, window, at, early)) continue;
+    names.push(row.name);
   }
-  const labeled: Partial<Record<JobName, string>> = {};
-  for (const job of JOB_ORDER) {
-    const names = found[job];
-    if (names?.length) labeled[job] = names.join(", ");
-  }
-  return labeled;
+  return names.join(", ");
 }
 
 function jobLevel(runs: TickRun[]): TickRun[] {
@@ -539,7 +535,7 @@ const PC_LABEL: Record<PcState, string> = {
   silent: "Unknown",
 };
 
-function recentRows(runs: TickRun[], now: Date, owners: Partial<Record<JobName, string>>): RecentRun[] {
+function recentRows(runs: TickRun[], now: Date, strategies: StrategyInput[]): RecentRun[] {
   return jobLevel(runs)
     .slice()
     .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime() || b.id - a.id)
@@ -549,7 +545,8 @@ function recentRows(runs: TickRun[], now: Date, owners: Partial<Record<JobName, 
       const status = stale ? "stalled" : run.status;
       const step = typeof run.summary?.current === "string" ? run.summary.current : null;
       const note = run.error?.trim() || (step ? stepTitle(run.job, step) : "");
-      const strategy = isJobName(run.job) ? owners[run.job] : undefined;
+      const started = new Date(run.startedAt);
+      const strategy = isJobName(run.job) && Number.isFinite(started.getTime()) ? openStrategies(strategies, run.job, started) : "";
       return {
         id: run.id,
         label: JOB_LABEL[run.job as JobName] ?? run.job,
@@ -607,7 +604,6 @@ export function buildTickStatus(input: {
   const queued = new Set(input.queued ?? []);
   const jobs = next ? outlook(input.strategies, input.runs, next, queued) : [];
   const boards = next ? strategyBoards(input.strategies, input.runs, next, queued) : [];
-  const owners = joiners(input.strategies);
   const due = jobs.filter((job) => job.due).map((job) => job.label);
   const queuedLabels = jobs.filter((job) => job.queued).map((job) => job.label);
   const active = input.strategies.filter((row) => row.status === "active").map((row) => row.name);
@@ -721,7 +717,7 @@ export function buildTickStatus(input: {
     jobs,
     boards,
     sessionNote,
-    recent: recentRows(input.runs, now, owners),
+    recent: recentRows(input.runs, now, input.strategies),
     strategies: active,
     waiting,
   };

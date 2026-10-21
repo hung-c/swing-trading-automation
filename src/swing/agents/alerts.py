@@ -68,8 +68,10 @@ def evaluate_plan(
         missing = [k for k, v in checks.items() if v is False]
         unknown = [k for k, v in checks.items() if v is None]
         allowed, why = _entry_allowed(regime, ts)
-        if not missing and allowed:
-            grade = "EXCELLENT" if rvol and rvol >= p.rvol_excellent else "good"
+        # Unknown is not a pass. Before the open, VWAP and RVOL are missing, and formatting
+        # those Nones as floats crashed the whole intraday job.
+        if not missing and not unknown and allowed:
+            grade = "EXCELLENT" if rvol is not None and rvol >= p.rvol_excellent else "good"
             return Alert(
                 **base,
                 condition="breakout_confirmed",
@@ -78,10 +80,16 @@ def evaluate_plan(
                     f"BUY SIGNAL {plan.symbol}: {price:.2f} > resistance {res:.2f}. RVOL {rvol:.2f} ({grade}), VWAP {vwap:.2f}, "
                     f"yday close {yesterday_close:.2f}. Plan: limit {plan.entry:.2f} (max {chase_level:.2f}), stop {plan.stop:.2f}, "
                     f"{plan.shares} shares, 2R {plan.target_2r:.2f}. Place the stop in the same minute."
-                    + (f" Unverified: {', '.join(unknown)}." if unknown else "")
                 ),
             )
-        reason = why or ("missing " + ", ".join(missing))
+        parts: list[str] = []
+        if why:
+            parts.append(why)
+        if missing:
+            parts.append("missing " + ", ".join(missing))
+        if unknown:
+            parts.append("unverified " + ", ".join(unknown))
+        reason = "; ".join(parts) if parts else "not confirmed"
         return Alert(**base, condition="breakout_unconfirmed", actionable=False, message=f"{plan.symbol} {price:.2f} above resistance {res:.2f} but {reason}. Wait.")
     if price >= res * 0.99:
         return Alert(**base, condition="approaching", actionable=False, message=f"{plan.symbol} {price:.2f} within 1% of resistance {res:.2f}. Watch the 15-min chart.")

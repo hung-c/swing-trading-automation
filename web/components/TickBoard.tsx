@@ -191,7 +191,7 @@ export function TickBoard({ initial }: { initial: TickStatus }) {
       <section className="card">
         <h3 style={{ margin: "0 0 6px" }}>Recent jobs</h3>
         <p className="lede">
-          Job-level runs from the last four days. The strategy column lists every active strategy that joins that job. This page refreshes every 20 seconds.
+          Job-level runs from the last four days. The strategy column lists only the strategies whose clock was open for that run. This page refreshes every 20 seconds.
         </p>
         {refreshFailed ? <p className="warn-list">Refresh failed. Showing the last reading.</p> : null}
         {data.recent.length ? (

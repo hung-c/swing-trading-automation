@@ -72,6 +72,18 @@ def test_breakout_unconfirmed_low_rvol(cfg):
     assert a.condition == "breakout_unconfirmed" and "RVOL" in a.message
 
 
+def test_breakout_before_open_does_not_crash_or_confirm(cfg):
+    """No session bars yet: VWAP and RVOL are missing. That must not raise or fire a buy."""
+    ts = datetime(2026, 10, 7, 8, 3, tzinfo=ET)
+    reg = RegimeReport(as_of=date(2026, 10, 7), sizing="full")
+    a = alerts.evaluate_plan(_plan(), 100.6, 99.0, None, reg, ts, cfg)
+    assert a is not None
+    assert a.condition == "breakout_unconfirmed" and not a.actionable
+    assert "VWAP" in a.message and "RVOL" in a.message
+    a = alerts.evaluate_plan(_plan(), 100.6, None, None, reg, ts, cfg)
+    assert a.condition == "breakout_unconfirmed" and "yesterday" in a.message
+
+
 def test_extended_and_approaching(cfg):
     ts = datetime(2026, 10, 7, 11, 30, tzinfo=ET)
     a = alerts.evaluate_plan(_plan(), 101.5, 99.0, None, None, ts, cfg)
