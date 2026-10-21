@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { HoverTip } from "@/components/HoverTip";
 import { Empty, Nav, Setup } from "@/components/Nav";
 import { PlanBoard } from "@/components/PlanBoard";
 import { RegimeBanner } from "@/components/RegimeBanner";
@@ -142,9 +143,9 @@ export default async function TodayPage() {
                         <td>{p.shares}</td>
                         <td>
                           {label ? (
-                            <span className={`chip ${p.stance === "exit" ? "bad" : p.stance === "keep" ? "ok" : "warn"}`} data-tip={p.stanceReason ?? label}>
+                            <HoverTip className={`chip help ${p.stance === "exit" ? "bad" : p.stance === "keep" ? "ok" : "warn"}`} tip={p.stanceReason ?? label}>
                               {label}
-                            </span>
+                            </HoverTip>
                           ) : (
                             "—"
                           )}

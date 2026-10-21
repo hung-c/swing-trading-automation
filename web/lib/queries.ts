@@ -68,6 +68,7 @@ function mapAlert(r: Record<string, unknown>): AlertRow {
     actionable: boolish(r.actionable),
     message: String(r.message ?? ""),
     planId,
+    storedPlanId: planId ?? "",
     strategyId: plan?.strategy_id ?? undefined,
     strategyName: fromPlan || fromTable || undefined,
     planPattern: plan?.pattern,

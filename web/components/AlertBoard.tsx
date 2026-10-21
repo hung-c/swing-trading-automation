@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { etDateTime, patternName, usd } from "@/lib/format";
+import { etClock, etDateTime, patternName, usd } from "@/lib/format";
 import type { AlertRow } from "@/lib/types";
 
 type Props = {
@@ -38,6 +39,29 @@ export function alertPlanHref(alert: AlertRow): string {
   if (alert.planId) return `/plans/${symbol}#plan-${alert.planId}`;
   if (alert.condition === "stop_hit" || alert.condition === "target_2r") return `/positions/${symbol}`;
   return `/plans/${symbol}`;
+}
+
+function AlertTime({ iso }: { iso: string }) {
+  const [box, setBox] = useState<{ x: number; y: number } | null>(null);
+  const full = etDateTime(iso);
+
+  function show(cell: HTMLTableCellElement) {
+    const r = cell.getBoundingClientRect();
+    const y = Math.max(8, r.top + r.height / 2 - 15);
+    setBox({ x: r.right + 8, y });
+  }
+
+  return (
+    <td
+      className="mono"
+      style={{ whiteSpace: "nowrap" }}
+      onMouseEnter={(e) => show(e.currentTarget)}
+      onMouseLeave={() => setBox(null)}
+    >
+      {etClock(iso)}
+      {box ? createPortal(<span className="time-pop" style={{ left: box.x, top: box.y }}>{full}</span>, document.body) : null}
+    </td>
+  );
 }
 
 function pageWindow(page: number, pages: number): number[] {
@@ -138,7 +162,7 @@ export function AlertBoard({ alerts, total, page, pageSize, conditions, symbol, 
                 const href = alertPlanHref(a);
                 return (
                   <tr
-                    key={`${a.day}-${a.symbol}-${a.condition}-${a.planId ?? ""}`}
+                    key={`${a.day}|${a.ts}|${a.symbol}|${a.condition}|${a.storedPlanId ?? ""}`}
                     className="alert-row"
                     tabIndex={0}
                     onClick={() => router.push(href)}
@@ -146,7 +170,7 @@ export function AlertBoard({ alerts, total, page, pageSize, conditions, symbol, 
                       if (e.key === "Enter" && e.target === e.currentTarget) router.push(href);
                     }}
                   >
-                    <td className="mono" style={{ whiteSpace: "nowrap" }}>{etDateTime(a.ts)}</td>
+                    <AlertTime iso={a.ts} />
                     <td>{a.symbol}</td>
                     <td>{a.strategyName ?? "—"}</td>
                     <td>

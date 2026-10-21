@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Empty, Nav, Setup } from "@/components/Nav";
+import { HoverTip } from "@/components/HoverTip";
 import { CloseButton, PositionForm, PositionPlanSwitch } from "@/components/PositionForm";
 import { openR, stanceLabel, usd } from "@/lib/format";
 import { loadSnapshot } from "@/lib/queries";
@@ -61,12 +62,12 @@ export default async function PositionsPage() {
                       <td>{p.shares}</td>
                       <td>
                         {label ? (
-                          <span
-                            className={`chip ${p.stance === "exit" ? "bad" : p.stance === "keep" ? "ok" : "warn"}`}
-                            data-tip={p.stanceReason ?? label}
+                          <HoverTip
+                            className={`chip help ${p.stance === "exit" ? "bad" : p.stance === "keep" ? "ok" : "warn"}`}
+                            tip={p.stanceReason ?? label}
                           >
                             {label}
-                          </span>
+                          </HoverTip>
                         ) : (
                           "—"
                         )}

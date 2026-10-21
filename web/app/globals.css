@@ -322,7 +322,7 @@ a.plan-main { display: flex; flex-direction: column; gap: 10px; color: inherit; 
 .plan-drop-body { display: grid; gap: 8px; padding-bottom: 4px; }
 .plan-drop .plan-notes { margin-bottom: 6px; }
 .chip { font-size: 11px; padding: 2px 7px; border-radius: 999px; background: var(--bg-2); color: var(--muted); }
-.chip[data-tip] { position: relative; cursor: help; }
+.chip[data-tip], .chip.help { position: relative; cursor: help; }
 .chip[data-tip]:hover::after {
   content: attr(data-tip);
   position: absolute;
@@ -501,7 +501,48 @@ textarea { resize: vertical; min-height: 72px; }
 tr.alert-row { cursor: pointer; }
 tr.alert-row:hover td { background: rgba(255, 255, 255, 0.04); }
 tr.alert-row:focus-visible { outline: 2px solid var(--green); outline-offset: -2px; }
-.alert-sub { display: block; margin-top: 2px; color: var(--faint); font-size: 12px; }
+.alert-sub {
+  display: block;
+  margin-top: 4px;
+  color: var(--faint);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.time-pop {
+  position: fixed;
+  z-index: 50;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  color: var(--text);
+  font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+}
+.hover-tip {
+  position: fixed;
+  z-index: 50;
+  width: max-content;
+  max-width: 28ch;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  color: var(--text);
+  font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+  white-space: normal;
+  text-align: left;
+  pointer-events: none;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+}
 .plan-anchor { margin-bottom: 12px; scroll-margin-top: var(--nav-offset); }
 .plan-anchor.on .plan { border-color: var(--green); }
 .th-sub { display: block; margin-top: 3px; color: var(--faint); font-size: 10px; letter-spacing: 0; text-transform: none; }

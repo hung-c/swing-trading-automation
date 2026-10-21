@@ -115,6 +115,8 @@ export type AlertRow = {
   actionable: boolean;
   message: string;
   planId?: string;
+  /** Plan id as stored on the alert row, before a saved plan is filled in. */
+  storedPlanId?: string;
   strategyId?: string;
   strategyName?: string;
   planPattern?: string;
