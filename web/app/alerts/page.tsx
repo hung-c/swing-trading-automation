@@ -35,7 +35,7 @@ export default async function AlertsPage({ searchParams }: { searchParams: Promi
           <div>
             <h1>Intraday alerts</h1>
             <p className="lede">
-              A ticker alerts only after you save it to the watchlist. It stays on that list until you remove it. Open positions still alert on stop and 2R.
+              A ticker alerts only after you save it to the watchlist. It stays on that list until you remove it. Open positions still alert on stop and 2R. Click a row to open that plan.
             </p>
           </div>
         </div>

@@ -368,6 +368,12 @@ textarea { resize: vertical; min-height: 72px; }
 }
 .alert-pager-slot { display: inline-flex; align-items: center; gap: 8px; }
 .alert-ellipsis { color: var(--faint); font-size: 12px; }
+tr.alert-row { cursor: pointer; }
+tr.alert-row:hover td { background: rgba(255, 255, 255, 0.04); }
+tr.alert-row:focus-visible { outline: 2px solid var(--green); outline-offset: -2px; }
+.alert-sub { display: block; margin-top: 2px; color: var(--faint); font-size: 12px; }
+.plan-anchor { margin-bottom: 12px; scroll-margin-top: 84px; }
+.plan-anchor.on .plan { border-color: var(--green); }
 .th-sub { display: block; margin-top: 3px; color: var(--faint); font-size: 10px; letter-spacing: 0; text-transform: none; }
 .meter { height: 6px; margin-top: 6px; border-radius: 99px; background: var(--bg); overflow: hidden; }
 .meter > span { display: block; height: 100%; background: var(--green); }

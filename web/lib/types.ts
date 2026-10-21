@@ -115,6 +115,10 @@ export type AlertRow = {
   actionable: boolean;
   message: string;
   planId?: string;
+  strategyId?: string;
+  strategyName?: string;
+  planPattern?: string;
+  planEntry?: number;
 };
 
 export type PositionStance = "keep" | "exit" | "sell_half" | "raise_stop" | "decide";

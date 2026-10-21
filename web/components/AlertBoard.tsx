@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { etDateTime, usd } from "@/lib/format";
+import { etDateTime, patternName, usd } from "@/lib/format";
 import type { AlertRow } from "@/lib/types";
 
 type Props = {
@@ -22,6 +23,21 @@ function hrefFor(pathname: string, symbol: string, condition: string, page: numb
   if (page > 1) params.set("page", String(page));
   const q = params.toString();
   return q ? `${pathname}?${q}` : pathname;
+}
+
+function planTitle(alert: AlertRow): string {
+  if (alert.planPattern) return patternName(alert.planPattern);
+  if (alert.planId) return "Saved plan";
+  if (alert.condition === "stop_hit" || alert.condition === "target_2r") return "Open position";
+  return "—";
+}
+
+/** Open the saved plan. Stop and 2R rows without a plan open the position. */
+export function alertPlanHref(alert: AlertRow): string {
+  const symbol = encodeURIComponent(alert.symbol);
+  if (alert.planId) return `/plans/${symbol}#plan-${alert.planId}`;
+  if (alert.condition === "stop_hit" || alert.condition === "target_2r") return `/positions/${symbol}`;
+  return `/plans/${symbol}`;
 }
 
 function pageWindow(page: number, pages: number): number[] {
@@ -108,6 +124,8 @@ export function AlertBoard({ alerts, total, page, pageSize, conditions, symbol, 
             <tr>
               <th>Time</th>
               <th>Symbol</th>
+              <th>Strategy</th>
+              <th>Plan</th>
               <th>Condition</th>
               <th>Price</th>
               <th>RVOL</th>
@@ -116,24 +134,42 @@ export function AlertBoard({ alerts, total, page, pageSize, conditions, symbol, 
           </thead>
           <tbody>
             {alerts.length ? (
-              alerts.map((a) => (
-                <tr key={`${a.day}-${a.symbol}-${a.condition}-${a.planId ?? ""}`}>
-                  <td className="mono" style={{ whiteSpace: "nowrap" }}>{etDateTime(a.ts)}</td>
-                  <td>{a.symbol}</td>
-                  <td>
-                    {a.condition}
-                    {a.actionable ? <span className="chip ok">go</span> : null}
-                  </td>
-                  <td>{usd(a.price)}</td>
-                  <td>{a.rvol != null ? a.rvol.toFixed(2) : "—"}</td>
-                  <td className="notes" style={{ color: "var(--muted)" }}>
-                    {a.message}
-                  </td>
-                </tr>
-              ))
+              alerts.map((a) => {
+                const href = alertPlanHref(a);
+                return (
+                  <tr
+                    key={`${a.day}-${a.symbol}-${a.condition}-${a.planId ?? ""}`}
+                    className="alert-row"
+                    tabIndex={0}
+                    onClick={() => router.push(href)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && e.target === e.currentTarget) router.push(href);
+                    }}
+                  >
+                    <td className="mono" style={{ whiteSpace: "nowrap" }}>{etDateTime(a.ts)}</td>
+                    <td>{a.symbol}</td>
+                    <td>{a.strategyName ?? "—"}</td>
+                    <td>
+                      <Link href={href} className="pos-link" onClick={(e) => e.stopPropagation()}>
+                        {planTitle(a)}
+                      </Link>
+                      {a.planEntry != null ? <span className="alert-sub">Entry {usd(a.planEntry)}</span> : null}
+                    </td>
+                    <td>
+                      {a.condition}
+                      {a.actionable ? <span className="chip ok">go</span> : null}
+                    </td>
+                    <td>{usd(a.price)}</td>
+                    <td>{a.rvol != null ? a.rvol.toFixed(2) : "—"}</td>
+                    <td className="notes" style={{ color: "var(--muted)" }}>
+                      {a.message}
+                    </td>
+                  </tr>
+                );
+              })
             ) : (
               <tr>
-                <td colSpan={6} className="notes" style={{ textAlign: "center", padding: "28px 10px" }}>
+                <td colSpan={8} className="notes" style={{ textAlign: "center", padding: "28px 10px" }}>
                   No alerts match this symbol and condition.
                 </td>
               </tr>

@@ -53,6 +53,10 @@ function boolish(v: unknown): boolean {
 }
 
 function mapAlert(r: Record<string, unknown>): AlertRow {
+  const plan = r.plan_payload == null ? null : planOf(r.plan_payload);
+  const planId = r.plan_id == null || r.plan_id === "" ? undefined : String(r.plan_id);
+  const fromPlan = plan?.strategy_name?.trim() ?? "";
+  const fromTable = r.strategy_name == null ? "" : String(r.strategy_name).trim();
   return {
     day: asDate(r.day),
     ts: String(r.ts),
@@ -63,8 +67,53 @@ function mapAlert(r: Record<string, unknown>): AlertRow {
     vwap: r.vwap == null ? null : Number(r.vwap),
     actionable: boolish(r.actionable),
     message: String(r.message ?? ""),
-    planId: r.plan_id == null ? undefined : String(r.plan_id),
+    planId,
+    strategyId: plan?.strategy_id ?? undefined,
+    strategyName: fromPlan || fromTable || undefined,
+    planPattern: plan?.pattern,
+    planEntry: plan?.entry,
   };
+}
+
+type HeldPlan = { id: string; symbol: string; plan: PlanCard };
+
+/** Watchlist cards win when a position still points at the same id. */
+function heldPlans(watch: WatchItem[], positions: Record<string, unknown>[]): HeldPlan[] {
+  const byId = new Map<string, HeldPlan>();
+  for (const row of positions) {
+    const id = row.plan_id == null || row.plan_id === "" ? "" : String(row.plan_id);
+    const plan = planOf(row.original_plan);
+    if (!id || !plan) continue;
+    byId.set(id, { id, symbol: String(row.symbol), plan });
+  }
+  for (const item of watch) byId.set(item.id, { id: item.id, symbol: item.symbol, plan: item.plan });
+  return [...byId.values()];
+}
+
+function plansForSymbol(held: HeldPlan[], symbol: string): HeldPlan[] {
+  return held.filter((row) => row.symbol === symbol);
+}
+
+/** Name the plan that fired. Older rows have no plan id, so a ticker with one plan uses that plan. */
+function resolveAlert(alert: AlertRow, held: HeldPlan[]): AlertRow {
+  const forSymbol = plansForSymbol(held, alert.symbol);
+  const match = alert.planId ? held.find((row) => row.id === alert.planId) : forSymbol.length === 1 ? forSymbol[0] : undefined;
+  if (!match) return alert;
+  const name = match.plan.strategy_name?.trim() ?? "";
+  return {
+    ...alert,
+    planId: match.id,
+    strategyId: match.plan.strategy_id ?? alert.strategyId,
+    strategyName: name || alert.strategyName,
+    planPattern: match.plan.pattern || alert.planPattern,
+    planEntry: typeof match.plan.entry === "number" ? match.plan.entry : alert.planEntry,
+  };
+}
+
+/** Older cards have no strategy written on them. Use the active plan-card strategy, same as the plan list. */
+function withAlertStrategy(alert: AlertRow, source: StrategyLabel): AlertRow {
+  if (!alert.planId || alert.strategyName?.trim() || !source.name) return alert;
+  return { ...alert, strategyName: source.name, strategyId: alert.strategyId ?? source.id ?? undefined };
 }
 
 export const ALERT_PAGE_SIZE = 80;
@@ -90,7 +139,7 @@ export async function loadAlertList(opts: { page: number; symbol: string; condit
 
   try {
     await ensureSchema();
-    const [countRaw, conditionsRaw] = await Promise.all([
+    const [countRaw, conditionsRaw, strategyRaw] = await Promise.all([
       sql`
         SELECT COUNT(*)::int AS n FROM alerts
         WHERE symbol IN (
@@ -110,27 +159,40 @@ export async function loadAlertList(opts: { page: number; symbol: string; condit
         )
         ORDER BY condition
       `,
+      sql`SELECT id, name, payload FROM strategies WHERE status = 'active' ORDER BY updated_at DESC`.catch((e) => {
+        console.error("strategy label lookup failed", e);
+        return [];
+      }),
     ]);
     const total = Number(first<{ n: number }>(countRaw)?.n ?? 0);
     const pages = Math.max(1, Math.ceil(total / ALERT_PAGE_SIZE));
     const page = Math.min(Math.max(1, opts.page), pages);
     const offset = (page - 1) * ALERT_PAGE_SIZE;
-    const alertsRaw = await sql`
-      SELECT day, ts, symbol, condition, price, rvol, vwap, actionable, message, plan_id
-      FROM alerts
-      WHERE symbol IN (
-        SELECT symbol FROM watchlist
-        UNION
-        SELECT symbol FROM positions WHERE closed IS NULL
-      )
-      AND (${condition} = '' OR condition = ${condition})
-      AND (${symbol} = '' OR symbol LIKE ${pattern})
-      ORDER BY ts DESC, symbol, condition, plan_id
-      LIMIT ${ALERT_PAGE_SIZE} OFFSET ${offset}
-    `;
+    const [alertsRaw, watchlist, positionsRaw] = await Promise.all([
+      sql`
+        SELECT day, ts, symbol, condition, price, rvol, vwap, actionable, message, plan_id
+        FROM alerts
+        WHERE symbol IN (
+          SELECT symbol FROM watchlist
+          UNION
+          SELECT symbol FROM positions WHERE closed IS NULL
+        )
+        AND (${condition} = '' OR condition = ${condition})
+        AND (${symbol} = '' OR symbol LIKE ${pattern})
+        ORDER BY ts DESC, symbol, condition, plan_id
+        LIMIT ${ALERT_PAGE_SIZE} OFFSET ${offset}
+      `,
+      loadWatchlist(),
+      sql`SELECT symbol, plan_id, original_plan FROM positions WHERE closed IS NULL`.catch((e) => {
+        console.error("position plan lookup failed", e);
+        return [];
+      }),
+    ]);
+    const source = strategyLabel(rows<Record<string, unknown>>(strategyRaw));
+    const held = heldPlans(watchlist, rows<Record<string, unknown>>(positionsRaw));
     return {
       configured: true,
-      alerts: rows<Record<string, unknown>>(alertsRaw).map(mapAlert),
+      alerts: rows<Record<string, unknown>>(alertsRaw).map((row) => withAlertStrategy(resolveAlert(mapAlert(row), held), source)),
       total,
       page,
       pageSize: ALERT_PAGE_SIZE,

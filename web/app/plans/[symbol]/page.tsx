@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { HashScroll, PlanAnchor } from "@/components/HashScroll";
 import { Nav } from "@/components/Nav";
 import { PlanCard } from "@/components/PlanCard";
 import { PlanChart } from "@/components/PlanChart";
@@ -11,7 +12,8 @@ export default async function PlanDetail({ params }: { params: Promise<{ symbol:
   const sym = symbol.toUpperCase();
   const [found, snap] = await Promise.all([loadPlan(sym), loadSnapshot()]);
   const saved = snap.watchlist.filter((w) => w.symbol === sym);
-  const plan = saved[0]?.plan ?? found?.plan;
+  const position = snap.positions.find((p) => p.symbol === sym && p.originalPlan && p.planId && !saved.some((item) => item.id === p.planId));
+  const plan = saved[0]?.plan ?? position?.originalPlan ?? found?.plan;
   const day = found?.day ?? saved[0]?.planDate ?? snap.planDate ?? snap.brief?.date;
   const kinds = plan?.chart_paths ? Object.keys(plan.chart_paths) : ["weekly", "daily", "intraday"];
 
@@ -19,6 +21,7 @@ export default async function PlanDetail({ params }: { params: Promise<{ symbol:
     <>
       <Nav active="/plans" stamp={plan?.symbol} />
       <main className="shell">
+        <HashScroll />
         <p className="lede" style={{ marginTop: 22 }}>
           <Link href="/plans">← Plans</Link>
         </p>
@@ -27,12 +30,19 @@ export default async function PlanDetail({ params }: { params: Promise<{ symbol:
             <div className="page-head">
               <h1 style={{ margin: 0 }}>{plan.symbol}</h1>
             </div>
-            {saved.length ? (
-              saved.map((item) => (
-                <div key={item.id} style={{ marginBottom: 12 }}>
-                  <PlanCard plan={item.plan} item={item} peers={saved} price={snap.prices[item.symbol]} />
-                </div>
-              ))
+            {saved.length || position ? (
+              <>
+                {saved.map((item) => (
+                  <PlanAnchor key={item.id} id={`plan-${item.id}`}>
+                    <PlanCard plan={item.plan} item={item} peers={saved} price={snap.prices[item.symbol]} />
+                  </PlanAnchor>
+                ))}
+                {position?.originalPlan && position.planId ? (
+                  <PlanAnchor id={`plan-${position.planId}`}>
+                    <PlanCard plan={position.originalPlan} price={snap.prices[position.symbol]} />
+                  </PlanAnchor>
+                ) : null}
+              </>
             ) : (
               <PlanCard plan={plan} price={snap.prices[plan.symbol]} saved={plan.status !== "rejected" ? false : undefined} />
             )}
