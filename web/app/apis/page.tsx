@@ -158,7 +158,7 @@ export default async function ApisPage() {
             {groups().map((group) => (
               <tbody key={group}>
                 <tr>
-                  <td className="api-group" colSpan={9}>{group}</td>
+                  <td className="api-group" colSpan={9}><span className="pin">{group}</span></td>
                 </tr>
                 {APIS.filter((row) => row.group === group).map((row) => {
                   const n = Number(calls[row.id] ?? 0);

@@ -114,6 +114,7 @@ export default async function TodayPage() {
             {snap.positions.length ? (
               <section className="card" style={{ marginTop: 18 }}>
                 <h3 style={{ margin: "0 0 10px", fontSize: 15 }}>Open positions</h3>
+                <div className="table-scroll">
                 <table>
                   <thead>
                     <tr>
@@ -153,6 +154,7 @@ export default async function TodayPage() {
                     })}
                   </tbody>
                 </table>
+                </div>
               </section>
             ) : null}
           </>

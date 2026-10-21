@@ -134,6 +134,7 @@ export function TickBoard({ initial }: { initial: TickStatus }) {
           </p>
           {queueError ? <p className="warn-list">{queueError}</p> : null}
           {data.boards.length ? (
+            <div className="table-scroll">
             <table>
               <thead>
                 <tr>
@@ -148,8 +149,10 @@ export function TickBoard({ initial }: { initial: TickStatus }) {
                   <Fragment key={board.id}>
                     <tr className="strategy-head">
                       <td colSpan={4}>
-                        <span className="strategy-kicker">Strategy</span>
-                        <Link href={`/strategies/${board.id}`}>{board.name}</Link>
+                        <div className="pin">
+                          <span className="strategy-kicker">Strategy</span>
+                          <Link href={`/strategies/${board.id}`}>{board.name}</Link>
+                        </div>
                       </td>
                     </tr>
                     {board.jobs.length ? (
@@ -185,6 +188,7 @@ export function TickBoard({ initial }: { initial: TickStatus }) {
                 ))}
               </tbody>
             </table>
+            </div>
           ) : null}
         </section>
 
@@ -195,6 +199,7 @@ export function TickBoard({ initial }: { initial: TickStatus }) {
         </p>
         {refreshFailed ? <p className="warn-list">Refresh failed. Showing the last reading.</p> : null}
         {data.recent.length ? (
+          <div className="table-scroll">
           <table>
             <thead>
               <tr>
@@ -219,6 +224,7 @@ export function TickBoard({ initial }: { initial: TickStatus }) {
               ))}
             </tbody>
           </table>
+          </div>
         ) : (
           <p className="lede" style={{ marginTop: 12 }}>
             No job has been recorded in the last four days.

@@ -25,7 +25,7 @@ export default async function PositionsPage() {
           <Empty title="No open positions" body="When you take a plan, log the fill below. Intraday jobs will then watch stop / 2R / failed breakout." />
         ) : null}
         {snap.positions.length ? (
-          <div className="card" style={{ padding: 0 }}>
+          <div className="card table-scroll" style={{ padding: 0 }}>
             <table>
               <thead>
                 <tr>

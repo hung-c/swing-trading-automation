@@ -38,7 +38,7 @@ export default async function JournalPage() {
           <Empty title="No closed trades" body="Close a position from the Positions page to land it here." />
         ) : null}
         {snap.trades.length ? (
-          <div className="card" style={{ padding: 0 }}>
+          <div className="card table-scroll" style={{ padding: 0 }}>
             <table>
               <thead>
                 <tr>

@@ -16,18 +16,22 @@ export function Nav({ active, stamp }: { active: string; stamp?: string | null }
   return (
     <header className="nav">
       <div className="nav-inner">
-        <div className="brand">
-          SWING
-          <small>alerts only</small>
+        <div className="nav-top">
+          <div className="brand">
+            SWING
+            <small>alerts only</small>
+          </div>
+          <div className="nav-space" />
+          {stamp ? <div className="nav-meta">{stamp}</div> : null}
+          <Clock />
         </div>
-        {TABS.map(([href, label]) => (
-          <Link key={href} href={href} className={`tab${active === href ? " active" : ""}`}>
-            {label}
-          </Link>
-        ))}
-        <div className="nav-space" />
-        {stamp ? <div className="nav-meta">{stamp}</div> : null}
-        <Clock />
+        <nav className="nav-tabs" aria-label="Sections">
+          {TABS.map(([href, label]) => (
+            <Link key={href} href={href} className={`tab${active === href ? " active" : ""}`}>
+              {label}
+            </Link>
+          ))}
+        </nav>
       </div>
     </header>
   );
