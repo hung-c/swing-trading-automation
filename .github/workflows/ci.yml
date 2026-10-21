@@ -1,29 +1,41 @@
+# CI for the Python strategy package and the Next.js dashboard.
+# Both jobs must pass before a change is considered green.
 name: ci
 
 on:
+  # Default branch pushes (this repo has used both names).
   push:
     branches: [master, main]
+  # Every pull request, against any base branch.
   pull_request:
+  # Manual run from the Actions tab (workflow_dispatch).
   workflow_dispatch:
 
 jobs:
+  # Python package: lint, tests, and a config/secrets smoke check.
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # uv installs Python and the project deps. Cache the uv download.
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
       - run: uv python install 3.12
+      # --extra dev pulls ruff and pytest from the dev dependency group.
       - run: uv sync --extra dev
       - run: uv run ruff check src tests
       - run: uv run pytest -q
+      # Loads config and the trading calendar, and prints which secrets are set.
+      # Missing keys are reported, not treated as a failure.
       - run: uv run swing check
 
+  # Next.js app in web/. Compiles only; it does not talk to Neon.
   web:
     runs-on: ubuntu-latest
     defaults:
       run:
+        # npm commands below run inside web/, where package.json lives.
         working-directory: web
     steps:
       - uses: actions/checkout@v4
@@ -31,8 +43,12 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          # Lockfile is not at the repo root, so point the cache at it.
           cache-dependency-path: web/package-lock.json
+      # Clean install from the lockfile (fails if package.json and the lock drift).
       - run: npm ci
+      # Empty DATABASE_URL so the production build does not open a database.
+      # Pages that need Neon check for it at request time.
       - run: npm run build
         env:
           DATABASE_URL: ""
