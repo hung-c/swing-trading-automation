@@ -147,7 +147,22 @@ summary:focus-visible {
 }
 
 .page-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin: 28px 0 18px; }
-.page-head h1 { font-size: clamp(22px, 4vw, 28px); margin: 0 0 6px; letter-spacing: -0.03em; line-height: 1.15; }
+.page-head h1 { font-size: clamp(22px, 4vw, 28px); margin: 8px 0 6px; letter-spacing: -0.03em; line-height: 1.15; }
+.job-tag {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px 8px;
+  background: var(--card-2);
+  white-space: nowrap;
+}
 .lede { color: var(--muted); margin: 0; max-width: 62ch; }
 
 .grid { display: grid; gap: 14px; }
@@ -187,6 +202,7 @@ summary:focus-visible {
   display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
   padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card);
 }
+.regime-tape .job-tag { margin-left: auto; }
 .regime-kicker {
   color: var(--faint); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
 }

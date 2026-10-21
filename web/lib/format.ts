@@ -85,6 +85,37 @@ export function scanStillOpen(scanDay: string | null | undefined, now = new Date
   return scanDay.slice(0, 10) >= todayEt(now);
 }
 
+const JOB_LABEL: Record<string, string> = {
+  nightly: "Nightly",
+  premarket: "Premarket",
+  intraday: "Intraday",
+  eod: "End of day",
+};
+
+export function jobLabel(kind: string): string {
+  return JOB_LABEL[kind] ?? kind;
+}
+
+/** Weekday, date, and Eastern clock for a job tag. */
+export function jobWhen(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const day = d.toLocaleDateString("en-US", {
+    timeZone: "America/New_York",
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+  const clock = d.toLocaleTimeString("en-US", {
+    timeZone: "America/New_York",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  });
+  return `${day}, ${clock}`;
+}
+
 export function etDate(iso: string): string {
   const d = new Date(iso.length === 10 ? `${iso}T16:00:00Z` : iso);
   if (Number.isNaN(d.getTime())) return iso;

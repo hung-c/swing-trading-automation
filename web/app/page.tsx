@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { HoverTip } from "@/components/HoverTip";
+import { JobTag } from "@/components/JobTag";
 import { Empty, Nav, Setup } from "@/components/Nav";
 import { PlanBoard } from "@/components/PlanBoard";
 import { RegimeBanner } from "@/components/RegimeBanner";
@@ -18,11 +19,16 @@ export default async function TodayPage() {
     }),
   ]);
   const b = snap.brief;
-  const regime = snap.premarket?.regime ?? b?.regime ?? null;
+  const prem = snap.premarket;
+  const premDay = (prem?.date ?? "").slice(0, 10);
+  const scanDay = (b?.date ?? "").slice(0, 10);
+  const lead = prem?.prose?.headline && premDay > scanDay ? prem : b;
+  const env = prem?.regime ? prem : b;
+  const regime = env?.regime ?? null;
   const regimeStrategies = book.strategies
     .filter((s) => s.status === "active")
     .map((s) => ({ id: s.id, name: s.name, rules: s.strategy.regime }));
-  const stamp = b ? `${etDate(b.date)} · ${b.kind}${b.llm_provider ? ` · ${b.llm_provider}` : ""}` : null;
+  const stamp = lead ? `${etDate(lead.date)} · ${lead.kind}${lead.llm_provider ? ` · ${lead.llm_provider}` : ""}` : null;
 
   return (
     <>
@@ -36,11 +42,14 @@ export default async function TodayPage() {
           <>
             <div className="page-head">
               <div>
-                <h1>{b.prose?.headline ?? "Nightly brief"}</h1>
-                <p className="lede">{b.prose?.market_summary}</p>
+                {lead ? <JobTag kind={lead.kind} at={lead.savedAt} /> : null}
+                <h1>{lead?.prose?.headline ?? "Nightly brief"}</h1>
+                <p className="lede">{lead?.prose?.market_summary}</p>
               </div>
             </div>
-            {regime ? <RegimeBanner regime={regime} strategies={regimeStrategies} /> : null}
+            {regime && env ? (
+              <RegimeBanner regime={regime} strategies={regimeStrategies} source={{ kind: env.kind, at: env.savedAt }} />
+            ) : null}
 
             <div className="grid grid-4" style={{ margin: "16px 0" }}>
               <div className="stat">

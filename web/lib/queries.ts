@@ -43,6 +43,13 @@ function labelBrief(brief: DailyBrief | null, source: StrategyLabel): DailyBrief
   };
 }
 
+function attachSavedAt(brief: DailyBrief | null, createdAt: unknown): DailyBrief | null {
+  if (!brief) return null;
+  if (createdAt == null || createdAt === "") return brief;
+  const savedAt = createdAt instanceof Date ? createdAt.toISOString() : String(createdAt);
+  return savedAt ? { ...brief, savedAt } : brief;
+}
+
 function labelWatch(items: WatchItem[], source: StrategyLabel): WatchItem[] {
   if (!source.name) return items;
   return items.map((item) => ({ ...item, plan: withStrategy(item.plan, source) }));
@@ -238,10 +245,14 @@ export async function loadSnapshot(): Promise<Snapshot> {
     ]);
 
     const source = strategyLabel(rows<Record<string, unknown>>(strategyRaw));
-    const parsed = rows<{ kind: string; payload: unknown }>(briefs).map((r) => asObj<DailyBrief>(r.payload));
-    const brief = labelBrief(parsed.find((b) => b.kind === "nightly") ?? parsed[0] ?? null, source);
-    const day = brief?.date;
-    const premarket = labelBrief(parsed.find((b) => b.kind === "premarket" && (!day || b.date === day)) ?? null, source);
+    const briefRows = rows<{ kind: string; payload: unknown; created_at?: unknown }>(briefs);
+    const nightlyRow = briefRows.find((row) => row.kind === "nightly") ?? briefRows[0];
+    const premarketRow = briefRows.find((row) => row.kind === "premarket");
+    const brief = attachSavedAt(labelBrief(nightlyRow ? asObj<DailyBrief>(nightlyRow.payload) : null, source), nightlyRow?.created_at);
+    const premarket = attachSavedAt(
+      labelBrief(premarketRow ? asObj<DailyBrief>(premarketRow.payload) : null, source),
+      premarketRow?.created_at,
+    );
 
     let prices: Record<string, number> = {};
     let pricesAt: string | null = null;

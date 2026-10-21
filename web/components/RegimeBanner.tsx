@@ -1,7 +1,10 @@
 import Link from "next/link";
+import { JobTag } from "@/components/JobTag";
 import { num, pct, sizingLabel } from "@/lib/format";
 import { callForStrategy, type RegimeRules } from "@/lib/regime-call";
 import type { RegimeReport, Sizing } from "@/lib/types";
+
+export type RegimeSource = { kind: string; at?: string | null };
 
 export type RegimeStrategy = {
   id: string;
@@ -16,7 +19,7 @@ function tone(sizing: Sizing, gated: boolean): string {
   return "ok";
 }
 
-function MarketTape({ regime }: { regime: RegimeReport }) {
+function MarketTape({ regime, source }: { regime: RegimeReport; source?: RegimeSource | null }) {
   const spy = regime.distribution?.find((d) => d.symbol === "SPY");
   const qqq = regime.distribution?.find((d) => d.symbol === "QQQ");
   return (
@@ -36,11 +39,20 @@ function MarketTape({ regime }: { regime: RegimeReport }) {
           <span className={`pill ${regime.faber_risk_on ? "on" : "off"}`}>Faber {regime.faber_risk_on ? "on" : "off"}</span>
         ) : null}
       </div>
+      {source ? <JobTag kind={source.kind} at={source.at} /> : null}
     </div>
   );
 }
 
-export function RegimeBanner({ regime, strategies }: { regime: RegimeReport; strategies: RegimeStrategy[] }) {
+export function RegimeBanner({
+  regime,
+  strategies,
+  source,
+}: {
+  regime: RegimeReport;
+  strategies: RegimeStrategy[];
+  source?: RegimeSource | null;
+}) {
   const calls = strategies.length
     ? strategies.map((s) => ({ id: s.id, name: s.name, href: `/strategies/${s.id}`, rules: s.rules, call: callForStrategy(regime, s.rules) }))
     : [
@@ -62,10 +74,11 @@ export function RegimeBanner({ regime, strategies }: { regime: RegimeReport; str
 
   return (
     <section className="regime-board">
-      <MarketTape regime={regime} />
+      <MarketTape regime={regime} source={source} />
       <div className="regime-grid">
         {calls.map((row) => (
           <article key={row.id} className={`regime-card ${row.call.gated ? row.call.sizing : "open"}`}>
+            {source ? <JobTag kind={source.kind} at={source.at} /> : null}
             <div className="regime-top">
               <Link href={row.href} className="regime-name">
                 {row.name}

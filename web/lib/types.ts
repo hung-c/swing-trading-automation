@@ -185,6 +185,8 @@ export type DailyBrief = {
   prose?: BriefProse | null;
   llm_provider?: string;
   warnings?: string[];
+  /** When this brief row was written. Not part of the job payload. */
+  savedAt?: string | null;
 };
 
 export type WatchItem = {
