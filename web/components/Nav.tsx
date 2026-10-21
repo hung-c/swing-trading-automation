@@ -9,6 +9,7 @@ const TABS = [
   ["/alerts", "Alerts"],
   ["/journal", "Journal"],
   ["/apis", "APIs"],
+  ["/flow", "Flow"],
   ["/pc", "PC"],
 ] as const;
 
