@@ -414,18 +414,19 @@ def _nightly_enabled(row: dict) -> bool:
 
 
 def plan_strategy(path: Path | None = None) -> tuple[str | None, str | None]:
-    """Id and display name for the strategy that wrote a plan card.
+    """Id and display name for the one strategy that wrote a plan card.
 
-    Active strategies with the nightly clock on are the source. One strategy
-    keeps its id. Several names are joined, and the id is left blank.
+    The source is the most recently updated active strategy with the nightly
+    clock on. If none have that clock, it is the most recently updated active
+    strategy. Drafts and paused strategies are ignored.
     """
     active = list_strategies(path=path, status="active")
     chosen = [row for row in active if _nightly_enabled(row)] or active
-    names = [str(row["name"]) for row in chosen if row.get("name")]
-    if not names:
+    row = next((r for r in chosen if r.get("name")), None)
+    if row is None:
         return None, None
-    sid = str(chosen[0]["id"]) if len(chosen) == 1 and chosen[0].get("id") else None
-    return sid, " · ".join(names)
+    sid = str(row["id"]) if row.get("id") else None
+    return sid, str(row["name"])
 
 
 def stamp_plan_strategy(plans: list[PlanCard], path: Path | None = None) -> None:

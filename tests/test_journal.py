@@ -215,7 +215,7 @@ def test_stamp_plan_strategy_names_the_active_strategy(tmp_path):
     assert "AAPL | Tight base |" in plan.card_text()
 
 
-def test_stamp_plan_strategy_joins_every_nightly_strategy(tmp_path):
+def test_stamp_plan_strategy_uses_the_latest_nightly_strategy(tmp_path):
     db = tmp_path / "j.sqlite"
     _save_strategy(db, "Tight base", updated="2026-10-08T15:00:00+00:00")
     _save_strategy(
@@ -227,5 +227,5 @@ def test_stamp_plan_strategy_joins_every_nightly_strategy(tmp_path):
     _save_strategy(db, "Paused book", status="paused", sid="cccccccc-cccc-4ccc-8ccc-cccccccccccc")
     plan = _plan("MSFT")
     journal.stamp_plan_strategy([plan], path=db)
-    assert plan.strategy_name == "Opening range · Tight base"
-    assert plan.strategy_id is None
+    assert plan.strategy_name == "Opening range"
+    assert plan.strategy_id == "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"

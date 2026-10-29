@@ -16,21 +16,29 @@ function nightlyOn(payload: unknown): boolean {
   }
 }
 
-/** Active strategies that write plan cards. One keeps its id; several names are joined. */
+const STRATEGY_JOIN = " · ";
+
+/** One plan belongs to one strategy: the latest active strategy with the nightly clock on. */
 function strategyLabel(raw: Record<string, unknown>[]): StrategyLabel {
   const active = raw.filter((row) => row.name);
   const nightly = active.filter((row) => nightlyOn(row.payload));
-  const chosen = nightly.length ? nightly : active;
-  const names = chosen.map((row) => String(row.name));
-  if (!names.length) return { id: null, name: null };
-  return {
-    id: chosen.length === 1 ? String(chosen[0].id) : null,
-    name: names.join(" · "),
-  };
+  const chosen = (nightly.length ? nightly : active)[0];
+  if (!chosen?.name) return { id: null, name: null };
+  return { id: chosen.id ? String(chosen.id) : null, name: String(chosen.name) };
+}
+
+function joinedStrategy(name: string): boolean {
+  return name.includes(STRATEGY_JOIN);
+}
+
+function firstStrategy(name: string): string {
+  return name.split(STRATEGY_JOIN).map((part) => part.trim()).find(Boolean) ?? "";
 }
 
 function withStrategy(plan: PlanCard, source: StrategyLabel): PlanCard {
-  if (!source.name || plan.strategy_name?.trim()) return plan;
+  const stored = plan.strategy_name?.trim() ?? "";
+  if (joinedStrategy(stored)) return { ...plan, strategy_name: firstStrategy(stored) };
+  if (stored || !source.name) return plan;
   return { ...plan, strategy_id: plan.strategy_id ?? source.id, strategy_name: source.name };
 }
 
@@ -120,7 +128,9 @@ function resolveAlert(alert: AlertRow, held: HeldPlan[]): AlertRow {
 
 /** Older cards have no strategy written on them. Use the active plan-card strategy, same as the plan list. */
 function withAlertStrategy(alert: AlertRow, source: StrategyLabel): AlertRow {
-  if (!alert.planId || alert.strategyName?.trim() || !source.name) return alert;
+  const stored = alert.strategyName?.trim() ?? "";
+  if (joinedStrategy(stored)) return { ...alert, strategyName: firstStrategy(stored) };
+  if (stored || !source.name || !alert.planId) return alert;
   return { ...alert, strategyName: source.name, strategyId: alert.strategyId ?? source.id ?? undefined };
 }
 
@@ -197,7 +207,10 @@ export async function loadAlertList(opts: { page: number; symbol: string; condit
       }),
     ]);
     const source = strategyLabel(rows<Record<string, unknown>>(strategyRaw));
-    const held = heldPlans(watchlist, rows<Record<string, unknown>>(positionsRaw));
+    const held = heldPlans(watchlist, rows<Record<string, unknown>>(positionsRaw)).map((row) => ({
+      ...row,
+      plan: withStrategy(row.plan, source),
+    }));
     return {
       configured: true,
       alerts: rows<Record<string, unknown>>(alertsRaw).map((row) => withAlertStrategy(resolveAlert(mapAlert(row), held), source)),
@@ -265,7 +278,10 @@ export async function loadSnapshot(): Promise<Snapshot> {
 
     const alerts: AlertRow[] = rows<Record<string, unknown>>(alertsRaw).map(mapAlert);
 
-    const positions: PositionRow[] = rows<Record<string, unknown>>(positionsRaw).map(mapPosition);
+    const positions: PositionRow[] = rows<Record<string, unknown>>(positionsRaw).map((row) => {
+      const position = mapPosition(row);
+      return position.originalPlan ? { ...position, originalPlan: withStrategy(position.originalPlan, source) } : position;
+    });
     const trades: TradeRow[] = rows<Record<string, unknown>>(tradesRaw).map((r) => ({
       id: Number(r.id),
       symbol: String(r.symbol),
@@ -394,7 +410,8 @@ export async function loadPlan(symbol: string): Promise<{ plan: PlanCard; day: s
   );
   if (!found) return null;
   const plan = asObj<PlanCard>(found.payload);
-  if (plan.strategy_name?.trim()) return { plan, day: asDate(found.plan_date) };
+  const stored = plan.strategy_name?.trim() ?? "";
+  if (stored && !stored.includes(STRATEGY_JOIN)) return { plan, day: asDate(found.plan_date) };
   let source: StrategyLabel = { id: null, name: null };
   try {
     source = strategyLabel(

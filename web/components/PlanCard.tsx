@@ -34,18 +34,18 @@ export function PlanCard({
   peers?: WatchItem[];
 }) {
   const dist = distanceToEntry(plan, price);
-  const strategies = (plan.strategy_name ?? "")
+  const strategy = (plan.strategy_name ?? "")
     .split("·")
     .map((name) => name.trim())
-    .filter(Boolean);
+    .find(Boolean);
   const inner = (
     <>
       <div className="plan-top">
         <div className="plan-id">
           <div className="sym">{plan.symbol}</div>
           <div className="pat">
-            {strategies.length ? <span className="plan-strategy">{strategies.join(" · ")}</span> : null}
-            {strategies.length ? " · " : ""}
+            {strategy ? <span className="plan-strategy">{strategy}</span> : null}
+            {strategy ? " · " : ""}
             {patternName(plan.pattern)} · q {num(plan.pattern_quality, 1)}/10 · trend {plan.trend_score}/8
             {plan.sector ? ` · ${plan.sector}` : ""}
           </div>
